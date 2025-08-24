@@ -1,0 +1,27 @@
+{
+  "name": "LNAT AI Platform",
+  "short_name": "LNAT AI",
+  "description": "Yapay zeka destekli LNAT sınavı hazırlık platformu",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3B82F6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon_512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "lang": "tr",
+  "dir": "ltr"
+} 

@@ -1,0 +1,38 @@
+{
+  "name": "lna-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@reduxjs/toolkit": "^2.8.2",
+    "@types/pdfjs-dist": "^2.10.377",
+    "firebase": "^12.1.0",
+    "lucide-react": "^0.536.0",
+    "next": "15.4.5",
+    "openai": "^5.12.0",
+    "pdf-parse": "^1.1.1",
+    "pdfjs-dist": "^5.4.54",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-dropzone": "^14.3.8",
+    "react-redux": "^9.2.0",
+    "react-spinners": "^0.17.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20.19.9",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.4.5",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
