@@ -1,9 +1,5 @@
 {
-  "env": {
-    "PAYTR_MERCHANT_ID": "@paytr_merchant_id",
-    "PAYTR_MERCHANT_KEY": "@paytr_merchant_key",
-    "PAYTR_MERCHANT_SALT": "@paytr_merchant_salt"
-  },
+  
   "functions": {
     "src/app/api/payment/create/route.ts": {
       "maxDuration": 30
