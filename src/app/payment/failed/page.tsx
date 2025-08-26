@@ -1,95 +1,75 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
-import { XCircle, AlertTriangle, ArrowLeft, RefreshCw } from 'lucide-react';
-import Navbar from '@/components/Navbar';
 
-export default function PaymentFailedPage() {
-  const [orderId, setOrderId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    setOrderId(urlParams.get('order'));
-  }, []);
+function PaymentFailedContent() {
+  const searchParams = useSearchParams();
+  const callbackId = searchParams.get('callback_id');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50">
-      <Navbar />
-      
-      <div className="container mx-auto px-4 py-16">
-        <div className="max-w-2xl mx-auto text-center">
-          {/* Failed Icon */}
-          <div className="mb-8">
-            <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <XCircle className="w-12 h-12 text-red-600" />
-            </div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Ödeme Başarısız</h1>
-            <p className="text-xl text-gray-600">Ödeme işlemi tamamlanamadı</p>
-          </div>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+        <AlertCircle className="mx-auto h-16 w-16 text-red-500 mb-4" />
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Ödeme Başarısız</h2>
+        <p className="text-gray-600 mb-6">
+          Ödeme işlemi tamamlanamadı. Lütfen tekrar deneyin veya farklı bir ödeme yöntemi kullanın.
+        </p>
+        
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <h3 className="font-semibold text-red-800 mb-2">Olası Nedenler:</h3>
+          <ul className="text-sm text-red-700 space-y-1 text-left">
+            <li>• Yetersiz bakiye</li>
+            <li>• Kart bilgileri hatalı</li>
+            <li>• Banka tarafından işlem reddedildi</li>
+            <li>• Ağ bağlantı sorunu</li>
+          </ul>
+        </div>
 
-          {/* Order Details */}
-          {orderId && (
-            <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Sipariş Detayları</h2>
-              <div className="text-sm text-gray-600">
-                <p><strong>Sipariş ID:</strong> {orderId}</p>
-                <p><strong>Durum:</strong> <span className="text-red-600 font-semibold">Başarısız</span></p>
-                <p><strong>Tarih:</strong> {new Date().toLocaleDateString('tr-TR')}</p>
-              </div>
-            </div>
-          )}
+        <div className="space-y-3">
+          <Link 
+            href="/subscription"
+            className="block w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center"
+          >
+            <RefreshCw className="w-5 h-5 mr-2" />
+            Tekrar Dene
+          </Link>
+          <Link 
+            href="/dashboard"
+            className="block w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center"
+          >
+            <ArrowLeft className="w-5 h-5 mr-2" />
+            Dashboard&apos;a Dön
+          </Link>
+        </div>
 
-          {/* Error Information */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-orange-500 mr-2" />
-              Olası Nedenler
-            </h2>
-            <div className="text-sm text-gray-600 space-y-2">
-              <p>• Kart bilgileri yanlış girildi</p>
-              <p>• Kart limiti yetersiz</p>
-              <p>• 3D Secure doğrulaması başarısız</p>
-              <p>• Banka tarafından işlem reddedildi</p>
-              <p>• Teknik bir hata oluştu</p>
-            </div>
-          </div>
+        {callbackId && (
+          <p className="text-xs text-gray-500 mt-4">
+            Referans ID: {callbackId}
+          </p>
+        )}
 
-          {/* Action Buttons */}
-          <div className="space-y-4">
-            <Link 
-              href="/subscription" 
-              className="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-lg transition-colors"
-            >
-              <RefreshCw className="w-5 h-5 mr-2" />
-              Tekrar Dene
-            </Link>
-            
-            <Link 
-              href="/dashboard" 
-              className="inline-flex items-center bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold px-8 py-3 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 mr-2" />
-              Dashboard&apos;a Dön
-            </Link>
-          </div>
-
-          {/* Additional Info */}
-          <div className="mt-8 text-sm text-gray-500">
-            <p>Ödeme işlemi sırasında herhangi bir ücret tahsil edilmez.</p>
-            <p>Kartınızda sadece 1₺ tutarında test işlemi görünebilir.</p>
-            <p>Sorun devam ederse destek ekibimizle iletişime geçin.</p>
-          </div>
-
-          {/* Support Info */}
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <h3 className="font-semibold text-blue-900 mb-2">Destek</h3>
-            <p className="text-sm text-blue-700">
-              Ödeme ile ilgili sorunlarınız için: <strong>destek@yourdomain.com</strong>
-            </p>
-          </div>
+        <div className="mt-6 text-sm text-gray-500">
+          <p>Sorun devam ederse destek ekibiyle iletişime geçin.</p>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PaymentFailedPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-red-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Yükleniyor...</p>
+        </div>
+      </div>
+    }>
+      <PaymentFailedContent />
+    </Suspense>
   );
 }

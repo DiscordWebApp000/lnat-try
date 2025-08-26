@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { paytrLinkService } from '@/lib/payment/paytr-link-service';
+import { paytrIframeService } from '@/lib/payment/paytr-iframe-service';
 import { PaymentRequest } from '@/lib/payment/payment-types';
+import { validatePayTRConfig } from '@/lib/payment/paytr-config';
 
 // Rate limiting için basit cache
 const requestCounts = new Map<string, { count: number; resetTime: number }>();
@@ -50,19 +51,21 @@ function validatePaymentRequest(body: any): { isValid: boolean; error?: string }
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔗 ===== PAYTR LINK API START =====');
-    console.log('🔗 Payment Link API called at:', new Date().toISOString());
-    console.log('🔗 Environment:', process.env.NODE_ENV);
-    console.log('🔗 APP_URL:', process.env.NEXT_PUBLIC_APP_URL);
+    // PayTR configuration validation
+    if (!validatePayTRConfig()) {
+      return NextResponse.json({ 
+        success: false,
+        error: 'PayTR konfigürasyon hatası',
+        message: 'Lütfen sistem yöneticisi ile iletişime geçin'
+      }, { status: 500 });
+    }
     
     // Authentication kontrolü (development'ta esnek)
     const authHeader = request.headers.get('authorization');
-    console.log('🔗 Auth header:', authHeader);
     
     if (process.env.NODE_ENV === 'production') {
       // Production'da sıkı authentication
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        console.log('🔗 Authentication failed: No valid auth header');
         return NextResponse.json({ 
           success: false,
           error: 'Kimlik doğrulama gerekli',
@@ -72,22 +75,11 @@ export async function POST(request: NextRequest) {
       
       const token = authHeader.replace('Bearer ', '');
       if (!token || token.length < 10) {
-        console.log('🔗 Authentication failed: Invalid token');
         return NextResponse.json({ 
           success: false,
           error: 'Geçersiz kimlik bilgisi',
           message: 'Lütfen tekrar giriş yapın'
         }, { status: 401 });
-      }
-      
-      console.log('🔗 Production authentication successful, token length:', token.length);
-    } else {
-      // Development'ta authentication opsiyonel
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.replace('Bearer ', '');
-        console.log('🔗 Development authentication with token, length:', token.length);
-      } else {
-        console.log('🔗 Development mode - authentication bypassed');
       }
     }
     
@@ -97,7 +89,6 @@ export async function POST(request: NextRequest) {
                      'unknown';
     
     if (!checkRateLimit(clientIP, 5, 60000)) {
-      console.log('🔗 Rate limit exceeded for IP:', clientIP);
       return NextResponse.json({ 
         success: false,
         error: 'Çok fazla istek. Lütfen bir dakika bekleyin.' 
@@ -106,51 +97,41 @@ export async function POST(request: NextRequest) {
     
     // Request body'yi parse et
     const body = await request.json();
-    console.log('🔗 Request body:', body);
     
     // Input validation
     const validation = validatePaymentRequest(body);
     if (!validation.isValid) {
-      console.log('🔗 Validation failed:', validation.error);
       return NextResponse.json({ 
         success: false,
         error: validation.error 
       }, { status: 400 });
     }
     
-    const { userId, amount, planType, userEmail, userName } = body;
-    console.log('🔗 Creating payment link for:', { userId, amount, planType, userEmail, userName });
+    const { userId, amount, planType, userEmail, userName, userPhone, userAddress } = body;
     
-    // PayTR Link API ile ödeme linki oluştur
+    // PayTR iFrame API ile ödeme formu oluştur
     const paymentRequest: PaymentRequest = {
       userId,
       amount,
       currency: 'TRY',
       planType,
       userEmail,
-      userName
+      userName,
+      userPhone,
+      userAddress
     };
     
-    console.log('🔗 PaymentRequest object:', paymentRequest);
+    const result = await paytrIframeService.createIframePayment(paymentRequest);
     
-    const result = await paytrLinkService.createPaymentLink(paymentRequest);
-    
-    console.log('🔗 PaytrLinkService result:', result);
-    
-    if (result.success) {
-      console.log('🔗 Payment link created successfully:', result);
-      console.log('🔗 ===== PAYTR LINK API SUCCESS =====');
-      
+    if (result.success && result.iframeData) {
       return NextResponse.json({
         success: true,
         token: result.token,
         message: result.message,
-        paymentUrl: result.paymentUrl,
-        orderId: result.token // Link ID'yi order ID olarak kullan
+        iframeData: result.iframeData,
+        orderId: result.token
       });
     } else {
-      console.log('🔗 Payment link creation failed:', result.error);
-      
       return NextResponse.json({
         success: false,
         error: result.error,
@@ -159,13 +140,10 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    console.log('🔗 ===== PAYTR LINK API ERROR =====');
-    console.error('🔗 Payment link creation error:', error);
-    
     return NextResponse.json(
       { 
         success: false,
-        error: 'Ödeme linki oluşturulamadı',
+        error: 'iFrame ödeme formu oluşturulamadı',
         message: error instanceof Error ? error.message : 'Teknik bir hata oluştu',
         details: process.env.NODE_ENV === 'development' ? error : undefined
       }, 
@@ -173,3 +151,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+

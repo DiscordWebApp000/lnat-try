@@ -9,7 +9,8 @@ export interface PaymentRequest {
   userAddress?: string;
 }
 
-export interface PaytrPaymentData {
+// iFrame Token API için yeni interface
+export interface PaytrIframeData {
   merchant_id: string;
   user_ip: string;
   merchant_oid: string;
@@ -27,27 +28,21 @@ export interface PaytrPaymentData {
   timeout_limit: number;
   debug_on: number;
   lang: string;
-  hash: string;
+  user_basket: string; // Base64 encoded JSON
+  paytr_token: string; // Hash ile oluşturulan token
 }
 
-// PayTR Link API için yeni interface
-export interface PaytrLinkData {
-  merchant_id: string;
-  name: string;
-  price: string; // Kuruş cinsinden string
-  currency: string;
-  max_installment: string;
-  link_type: 'product' | 'collection';
-  lang: string;
-  min_count: string;
-  max_count: string;
-  expiry_date: string;
-  callback_link: string; // Zorunlu - callback URL (PayTR Link API gereksinimi)
-  callback_id: string; // Zorunlu - callback ID (PayTR Link API gereksinimi)
-  debug_on: string;
-  test_mode?: string; // Opsiyonel - test mode
-  user_name?: string;
-  user_email?: string;
+// iFrame Token Response
+export interface PaytrTokenResponse {
+  status: 'success' | 'failed';
+  token?: string;
+  reason?: string;
+}
+
+// iFrame ödeme formu için
+export interface IframePaymentForm {
+  token: string;
+  iframeUrl: string;
 }
 
 export interface PaymentResponse {
@@ -55,7 +50,7 @@ export interface PaymentResponse {
   token?: string;
   error?: string;
   message?: string;
-  paymentUrl?: string; // Link API için ödeme URL'i
+  iframeData?: IframePaymentForm; // iFrame için ödeme formu
 }
 
 export interface WebhookData {
@@ -66,19 +61,19 @@ export interface WebhookData {
   // Diğer Paytr webhook alanları
 }
 
-// PayTR Link API webhook data
-export interface LinkWebhookData {
-  id: string; // Link ID
+// PayTR iFrame webhook data
+export interface IframeWebhookData {
   merchant_oid: string;
   status: 'success' | 'failed';
   total_amount: number;
   payment_amount: number;
   payment_type: string;
   currency: string;
-  callback_id?: string;
   merchant_id: string;
   test_mode: number;
   hash: string;
+  failed_reason_code?: string;
+  failed_reason_msg?: string;
 }
 
 export interface SubscriptionPlan {

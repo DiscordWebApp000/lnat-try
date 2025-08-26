@@ -1,205 +1,216 @@
-# 🚀 PayTR Link API Ödeme Sistemi Kurulum Rehberi
+# 🆕 PayTR iFrame Ödeme Sistemi Kurulumu
 
-## 🔒 Güvenlik Özellikleri
+Bu dokümantasyon, Lnat projesinde PayTR iFrame ödeme sisteminin nasıl kurulacağını açıklar.
 
-### ✅ **Güvenli Yapı:**
-- **Server-side hash oluşturma** - Client'da hiçbir secret key yok
-- **Rate limiting** - 5 istek/dakika sınırı
-- **Input validation** - Tüm girişler doğrulanır
-- **CSRF protection** - CSRF token ile koruma
-- **Webhook verification** - Hash doğrulama
-- **Secure headers** - Güvenlik başlıkları
-- **Link API** - Modern PayTR Link API entegrasyonu
+## 🔄 **Değişiklik: Link API → iFrame Sistemi**
 
-### 🚨 **Güvenlik Açıkları Kapatıldı:**
-- ❌ Client-side key exposure
-- ❌ Hash manipulation
-- ❌ Unlimited API calls
-- ❌ Invalid input injection
-- ❌ CSRF attacks
-- ❌ Eski iframe sistemi
+**Eski Sistem:** PayTR Link API (ödeme linki oluşturma)
+**Yeni Sistem:** PayTR iFrame API (güvenli ödeme formu)
 
-## 📋 Gereksinimler
+## 🎯 **iFrame Sisteminin Avantajları**
 
-### 1. PayTR Hesabı
-- [PayTR.com](https://www.paytr.com) üzerinden hesap oluşturun
-- Test ortamı için test bilgilerini alın
-- Production ortamı için gerçek bilgileri alın
+✅ **Güvenlik:** Kullanıcı hiçbir zaman siteden ayrılmaz
+✅ **UX:** Daha iyi kullanıcı deneyimi
+✅ **Güvenilirlik:** Link sistemindeki sorunlar çözüldü
+✅ **Entegrasyon:** Daha kolay entegrasyon
+✅ **Responsive:** Mobil uyumlu
 
-### 2. Environment Variables (GÜVENLİ)
-`.env.local` dosyası oluşturun:
+## 🚀 **Kurulum Adımları**
+
+### **1. Environment Variables**
 
 ```bash
-# SADECE SERVER-SIDE (client'da görünmez) - GÜVENLİ
-PAYTR_MERCHANT_ID=your_test_merchant_id
-PAYTR_MERCHANT_KEY=your_test_key
-PAYTR_MERCHANT_SALT=your_test_salt
-
-# Client-side'da sadece public bilgiler
-NEXT_PUBLIC_PAYTR_TEST_MODE=true
-NEXT_PUBLIC_PAYTR_CURRENCY=TRY
-NEXT_PUBLIC_PAYTR_API_URL=https://www.paytr.com/odeme/api
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+# .env.local dosyasına ekleyin
+PAYTR_MERCHANT_ID=your_merchant_id
+PAYTR_MERCHANT_KEY=your_merchant_key
+PAYTR_MERCHANT_SALT=your_merchant_salt
+PAYTR_CALLBACK_URL=https://yourdomain.com/api/paytr-iframe-webhook
+NEXT_PUBLIC_APP_URL=https://yourdomain.com
 ```
 
-## 🛠️ Kurulum Adımları
+### **2. PayTR Dashboard Ayarları**
 
-### 1. PayTR Dashboard Ayarları
-1. **Test Mode**: Development'ta açık, production'da kapalı
-2. **Webhook URL**: `https://yourdomain.com/api/paytr-webhook`
-3. **Success URL**: `https://yourdomain.com/payment/success`
-4. **Fail URL**: `https://yourdomain.com/payment/failed`
+1. **PayTR Mağaza Paneli** → **Destek & Kurulum** → **Ayarlar**
+2. **Bildirim URL:** `https://yourdomain.com/api/paytr-iframe-webhook`
+3. **SSL Sertifikası:** HTTPS kullanıyorsanız SSL aktif olmalı
 
-### 2. Test Ortamı
-- Test kartları ile ödeme testleri yapın
-- Webhook'ları test edin
-- Hash doğrulamasını kontrol edin
-- Rate limiting'i test edin
+### **3. API Endpoints**
 
-### 3. Production Ortamı
-- Gerçek PayTR bilgilerini kullanın
-- SSL sertifikası gerekli
-- Webhook güvenliği için IP whitelist ekleyin
+#### **Ödeme Formu Oluşturma**
+```typescript
+POST /api/payment/create-iframe
+```
 
-## 🔧 Kullanım
+**Request Body:**
+```json
+{
+  "userId": "user_123",
+  "amount": 99.99,
+  "currency": "TRY",
+  "planType": "premium",
+  "userEmail": "user@example.com",
+  "userName": "John Doe"
+}
+```
 
-### 1. Ödeme Formu (Subscription Sayfasında)
+**Response:**
+```json
+{
+  "success": true,
+  "token": "iframe_token_here",
+  "iframeData": {
+    "token": "iframe_token_here",
+    "iframeUrl": "https://www.paytr.com/odeme/guvenli/token"
+  }
+}
+```
+
+#### **Webhook Endpoint**
+```typescript
+POST /api/paytr-iframe-webhook
+```
+
+**Webhook Data:**
+```json
+{
+  "merchant_oid": "order_user123_timestamp_random",
+  "status": "success",
+  "total_amount": 9999,
+  "hash": "security_hash_here",
+  "payment_type": "card",
+  "currency": "TL"
+}
+```
+
+## 🔧 **Teknik Detaylar**
+
+### **Hash Hesaplama**
+```typescript
+// iFrame Token için
+const hashString = merchant_id + user_ip + merchant_oid + email + 
+                   payment_amount + user_basket + no_installment + 
+                   max_installment + currency + test_mode;
+const paytrToken = crypto.createHmac('sha256', merchant_key)
+  .update(hashString + merchant_salt)
+  .digest('base64');
+
+// Webhook doğrulama için
+const hashString = merchant_oid + merchant_salt + status + total_amount;
+const calculatedHash = crypto.createHmac('sha256', merchant_key)
+  .update(hashString)
+  .digest('base64');
+```
+
+### **Sepet Formatı**
+```typescript
+const basket = [
+  [
+    "Premium Abonelik - premium", // Ürün adı
+    "99.99",                      // Fiyat
+    1                            // Adet
+  ]
+];
+const userBasket = Buffer.from(JSON.stringify(basket)).toString('base64');
+```
+
+## 📱 **Frontend Kullanımı**
+
+### **iFrame Component**
 ```tsx
-import PaymentForm from '@/components/PaymentForm';
+import IframePaymentForm from '@/components/IframePaymentForm';
 
-export default function SubscriptionPage() {
+export default function PaymentPage() {
   return (
     <div>
-      <h1>Premium Abonelik</h1>
-      <PaymentForm />
+      <h1>Ödeme Sayfası</h1>
+      <IframePaymentForm />
     </div>
   );
 }
 ```
 
-### 2. Tool Erişim Kontrolü
-```tsx
-import { ToolAccessGuard } from '@/components/ToolAccessGuard';
-
-export default function ToolPage() {
-  return (
-    <ToolAccessGuard toolName="text-question-analysis">
-      {/* Tool içeriği */}
-    </ToolAccessGuard>
-  );
-}
+### **iFrame Resizer Script**
+```html
+<script src="https://www.paytr.com/js/iframeResizer.min.js"></script>
+<iframe 
+  src="https://www.paytr.com/odeme/guvenli/{token}"
+  id="paytriframe" 
+  frameBorder="0"
+  scrolling="no" 
+  style="width: 100%; minHeight: 600px"
+/>
+<script>iFrameResizer({},'#paytriframe');</script>
 ```
 
-## 🚨 Güvenlik
+## 🔒 **Güvenlik Önlemleri**
 
-### 1. Webhook Doğrulama
-- Hash doğrulaması zorunlu
-- IP whitelist önerilen
-- HTTPS zorunlu
-- Callback ID validation
+1. **Hash Doğrulama:** Tüm webhook'lar hash ile doğrulanır
+2. **Rate Limiting:** API endpoint'lerinde rate limiting
+3. **Input Validation:** Tüm kullanıcı girdileri validate edilir
+4. **Environment Variables:** Hassas bilgiler environment'da saklanır
 
-### 2. Environment Variables
-- Production bilgileri client-side'da görünmez
-- Server-side'da hash oluşturulur
-- Test bilgileri production'da kullanılmaz
+## 🧪 **Test Etme**
 
-### 3. API Güvenliği
-- Rate limiting: 5 istek/dakika
-- Input validation
-- CSRF protection
-- Secure headers
+### **Development Test**
+1. `NEXT_PUBLIC_PAYTR_TEST_MODE=true`
+2. PayTR test kartları kullanın
+3. Dış IP adresi gerekli (localhost çalışmaz)
 
-## 📱 Test
+### **Test Kartları**
+- **Başarılı:** 4355084355084358
+- **Başarısız:** 4355084355084358 (yanlış CVV)
 
-### 1. Test Kartları
-- **Visa**: 4111111111111111
-- **Mastercard**: 5555555555554444
-- **CVV**: 123
-- **Expiry**: 12/25
+## 📊 **Monitoring & Logging**
 
-### 2. Test Senaryoları
-- Başarılı ödeme linki oluşturma
-- Başarılı ödeme
-- Başarısız ödeme
-- Webhook işleme
-- Abonelik aktivasyonu
-- Rate limiting
-- Input validation
+### **Console Logs**
+```typescript
+console.log('✅ PayTR iFrame configuration validated successfully');
+console.log('🎯 Payment Method: iFrame (Token-based)');
+console.log('🔗 Callback URL:', callbackUrl);
+```
 
-## 🔍 Sorun Giderme
+### **Webhook Logs**
+```typescript
+console.log(`iFrame Webhook: Subscription activated for user ${userId}`);
+console.log(`iFrame Webhook: Failed payment for user ${userId}`);
+```
 
-### 1. Hash Hatası
-- Merchant key ve salt kontrol edin
-- Hash string formatını kontrol edin
-- Test mode ayarını kontrol edin
+## 🚨 **Hata Kodları**
 
-### 2. Webhook Hatası
-- URL formatını kontrol edin
-- HTTPS zorunluluğunu kontrol edin
-- Firewall ayarlarını kontrol edin
+PayTR iFrame webhook'larında dönen hata kodları:
 
-### 3. Ödeme Linki Hatası
-- Test mode ayarını kontrol edin
-- API endpoint'lerini kontrol edin
-- Environment variables'ları kontrol edin
+| Kod | Mesaj | Açıklama |
+|-----|--------|----------|
+| 0 | DEĞİŞKEN | Detaylı hata mesajı |
+| 1 | Kimlik Doğrulama yapılmadı | SMS doğrulama eksik |
+| 2 | Kimlik Doğrulama başarısız | Yanlış SMS kodu |
+| 3 | Güvenlik kontrolü başarısız | Fraud tespiti |
+| 6 | Müşteri vazgeçti | Ödeme sayfasından ayrıldı |
+| 8 | Taksit yapılamaz | Kart taksit desteklemiyor |
+| 9 | İşlem yetkisi yok | Kart işlem yetkisi yok |
+| 10 | 3D Secure gerekli | 3D Secure zorunlu |
+| 11 | Güvenlik uyarısı | Fraud riski |
+| 99 | Teknik hata | Entegrasyon hatası |
 
-### 4. Rate Limiting
-- 5 istek/dakika sınırını kontrol edin
-- IP adresini kontrol edin
-- Cache'i temizleyin
+## 🔄 **Migration Checklist**
 
-## 📞 Destek
-
-- **PayTR Destek**: [destek@paytr.com](mailto:destek@paytr.com)
-- **Teknik Dokümantasyon**: [docs.paytr.com](https://docs.paytr.com)
-- **Test Ortamı**: [test.paytr.com](https://test.paytr.com)
-
-## ✅ Kontrol Listesi
-
-- [ ] PayTR hesabı oluşturuldu
-- [ ] Test bilgileri alındı
-- [ ] Environment variables eklendi (GÜVENLİ)
-- [ ] Webhook URL ayarlandı
-- [ ] Test ödeme linkleri oluşturuldu
+- [ ] Environment variables güncellendi
+- [ ] PayTR Dashboard'da webhook URL değiştirildi
+- [ ] Eski Link API endpoint'leri kaldırıldı
+- [ ] Yeni iFrame endpoint'leri test edildi
+- [ ] Frontend component'ler güncellendi
+- [ ] Webhook doğrulama test edildi
 - [ ] Test ödemeleri yapıldı
-- [ ] Webhook'lar test edildi
-- [ ] Rate limiting test edildi
-- [ ] Input validation test edildi
-- [ ] Production bilgileri eklendi
-- [ ] SSL sertifikası aktif
-- [ ] IP whitelist eklendi
-- [ ] Son testler yapıldı
+- [ ] Production'a deploy edildi
 
-## 🔐 Güvenlik Kontrol Listesi
+## 📞 **Destek**
 
-- [ ] Client-side'da hiçbir secret key yok
-- [ ] Server-side hash oluşturma aktif
-- [ ] Rate limiting çalışıyor
-- [ ] Input validation aktif
-- [ ] CSRF protection aktif
-- [ ] Webhook verification aktif
-- [ ] Secure headers eklendi
-- [ ] Environment variables güvenli
-- [ ] SSL sertifikası aktif
-- [ ] Firewall ayarları yapıldı
-- [ ] Eski iframe sistemi kaldırıldı
-- [ ] Link API entegrasyonu aktif
+Herhangi bir sorun yaşarsanız:
+1. Console loglarını kontrol edin
+2. PayTR Dashboard'da işlem durumunu kontrol edin
+3. Webhook response'larını test edin
+4. Environment variables'ları doğrulayın
 
-## 🆕 Yeni Özellikler
+---
 
-### ✅ **PayTR Link API**
-- Modern Link API entegrasyonu
-- Otomatik ödeme linki oluşturma
-- 24 saat geçerli linkler
-- Callback ID ile kullanıcı takibi
-
-### ✅ **Gelişmiş Webhook Sistemi**
-- Link API webhook'ları için özel işleme
-- Güvenli hash doğrulama
-- Kullanıcı durumu güncelleme
-
-### ✅ **Temiz Kod Yapısı**
-- Ayrı servis katmanları
-- Type-safe interface'ler
-- Hata yönetimi
-- Subscription sayfası entegrasyonu
+**Not:** Bu sistem PayTR'ın resmi iFrame API dokümantasyonuna uygun olarak geliştirilmiştir.

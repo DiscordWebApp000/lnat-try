@@ -6,7 +6,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchUserSubscription } from '@/store/slices/subscriptionSlice';
 import Navbar from '@/components/Navbar';
 import { Calendar, Clock, CreditCard, Crown, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
-import PaymentForm from '@/components/PaymentForm';
+import IframePaymentForm from '@/components/IframePaymentForm';
 
 export default function SubscriptionPage() {
   const { currentUser } = useAuth();
@@ -272,7 +272,7 @@ export default function SubscriptionPage() {
           </div>
 
           {/* Sadece aboneliği olmayan kullanıcılara planları göster */}
-          {!subscription?.status || subscription.status === 'expired' ? (
+          {(!subscription || subscription.status === 'expired') ? (
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Mevcut Abonelik Planları</h3>
               {loadingPlans ? (
@@ -343,14 +343,14 @@ export default function SubscriptionPage() {
                 </div>
               )}
             </div>
-          ) : (
+          ) : subscription?.status === 'active' ? (
             <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
               <h3 className="text-lg font-semibold text-green-800 mb-2">Aktif Aboneliğiniz Var</h3>
               <p className="text-green-700">
                 Şu anda aktif bir aboneliğiniz bulunuyor. Premium özelliklerin keyfini çıkarın!
               </p>
             </div>
-          )}
+          ) : null}
 
           {subscription?.status === 'trial' && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -507,7 +507,7 @@ export default function SubscriptionPage() {
         {/* Payment Form Section */}
         <div id="payment-section" className="bg-white rounded-2xl shadow-lg p-8 mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Premium Abonelik</h2>
-          <PaymentForm />
+          <IframePaymentForm />
         </div>
 
         {/* Info Card */}

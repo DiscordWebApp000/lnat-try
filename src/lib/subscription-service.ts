@@ -20,16 +20,12 @@ export class SubscriptionService {
     planId: string, 
     paymentData: {
       paymentId: string;
-      linkId: string;
+      linkId: string; // iFrame'de merchant_oid kullanılıyor
       amount: number;
       currency: string;
     }
   ): Promise<void> {
     try {
-      console.log('🔔 Subscription activation started for user:', userId);
-      console.log('🔔 Plan ID:', planId);
-      console.log('🔔 Payment data:', paymentData);
-      
       // Plan bilgisini al
       const planDoc = await getDocs(query(
         collection(db, 'subscriptionPlans'),
@@ -37,8 +33,6 @@ export class SubscriptionService {
       ));
       
       if (planDoc.empty) {
-        console.error('🔔 Plan not found in database:', planId);
-        console.error('🔔 Available plans:', planDoc.docs.map(doc => doc.data()));
         throw new Error(`Plan bulunamadı: ${planId}`);
       }
       
@@ -72,9 +66,9 @@ export class SubscriptionService {
         planId: plan.id,
         amount: paymentData.amount,
         currency: paymentData.currency,
-        paymentMethod: 'paytr',
+        paymentMethod: 'paytr-iframe', // iFrame sistemi
         paymentId: paymentData.paymentId,
-        linkId: paymentData.linkId,
+        linkId: paymentData.linkId, // merchant_oid
         status: 'success',
         paymentDate: now,
         planName: plan.name,
@@ -104,7 +98,6 @@ export class SubscriptionService {
       await this.updateUserSubscriptionData(userId, subscription);
       
     } catch (error) {
-      console.error('Subscription activation error:', error);
       throw error;
     }
   }
@@ -131,7 +124,6 @@ export class SubscriptionService {
       });
       
     } catch (error) {
-      console.error('User subscription update error:', error);
       throw error;
     }
   }
@@ -169,8 +161,7 @@ export class SubscriptionService {
       
       return planSnapshot.docs[0].data() as SubscriptionPlan;
       
-    } catch (error) {
-      console.error('Get user subscription error:', error);
+    } catch {
       return null;
     }
   }
@@ -204,9 +195,8 @@ export class SubscriptionService {
         createdAt: Timestamp.fromDate(new Date())
       });
       
-    } catch (error) {
-      console.error('Grant admin permissions error:', error);
-      throw error;
+    } catch {
+      throw new Error('Admin permission grant failed');
     }
   }
   
@@ -239,8 +229,7 @@ export class SubscriptionService {
       
       return [...new Set(permissions)];
       
-    } catch (error) {
-      console.error('Get user permissions error:', error);
+    } catch {
       return [];
     }
   }
