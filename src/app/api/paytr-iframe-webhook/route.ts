@@ -69,13 +69,19 @@ export async function POST(request: NextRequest) {
     const validation = validateIframeWebhookData(webhookData);
     if (!validation.isValid) {
       console.error('❌ Webhook validation hatası:', validation.error);
-      return NextResponse.json({ error: validation.error }, { status: 400 });
+      return new NextResponse('VALIDATION_ERROR', {
+        status: 400,
+        headers: { 'Content-Type': 'text/plain' }
+      });
     }
     
     // Webhook doğrulama (hash kontrolü)
     if (!verifyIframeWebhook(webhookData)) {
       console.error('❌ Webhook hash doğrulama hatası');
-      return NextResponse.json({ error: 'Invalid hash' }, { status: 400 });
+      return new NextResponse('HASH_ERROR', {
+        status: 400,
+        headers: { 'Content-Type': 'text/plain' }
+      });
     }
     
     console.log('✅ Webhook hash doğrulandı');
@@ -167,19 +173,27 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Webhook başarıyla işlendi, PayTR\'a OK yanıtı gönderiliyor');
     
-    // Paytr'a başarılı yanıt gönder (sadece "OK" text olarak)
+    // PayTR'ye başarılı yanıt gönder (sadece "OK" text olarak)
     return new NextResponse('OK', {
       status: 200,
       headers: {
         'Content-Type': 'text/plain',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
       },
     });
 
   } catch (error) {
     console.error('❌ iFrame Webhook processing error:', error);
-    return NextResponse.json(
-      { error: 'iFrame webhook processing failed' }, 
-      { status: 500 }
-    );
+    
+    // PayTR'ye hata durumunda da text yanıt ver
+    return new NextResponse('ERROR', {
+      status: 500,
+      headers: {
+        'Content-Type': 'text/plain',
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      },
+    });
   }
 }
