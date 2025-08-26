@@ -16,6 +16,10 @@ export default function IframePaymentForm() {
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [iframeToken, setIframeToken] = useState<string | null>(null);
   const [showIframe, setShowIframe] = useState(false);
+  const [userPhone, setUserPhone] = useState('');
+  const [userFirstName, setUserFirstName] = useState(currentUser?.firstName || '');
+  const [userLastName, setUserLastName] = useState(currentUser?.lastName || '');
+  const [userAddress, setUserAddress] = useState('');
 
   // Abonelik planlarını getir
   useEffect(() => {
@@ -49,16 +53,28 @@ export default function IframePaymentForm() {
 
   // Input validation
   const validateInputs = (): { isValid: boolean; error?: string } => {
-    if (!currentUser?.firstName || currentUser.firstName.length < 2) {
-      return { isValid: false, error: 'Geçersiz ad' };
+    // Ad kontrolü
+    if (!userFirstName || userFirstName.length < 2) {
+      return { isValid: false, error: 'Geçerli bir ad giriniz (en az 2 karakter)' };
     }
     
-    if (!currentUser?.lastName || currentUser.lastName.length < 2) {
-      return { isValid: false, error: 'Geçersiz soyad' };
+    // Soyad kontrolü
+    if (!userLastName || userLastName.length < 2) {
+      return { isValid: false, error: 'Geçerli bir soyad giriniz (en az 2 karakter)' };
     }
     
     if (!currentUser?.email || !currentUser.email.includes('@')) {
       return { isValid: false, error: 'Geçersiz email' };
+    }
+
+    // Telefon numarası kontrolü - PayTR için zorunlu
+    if (!userPhone || userPhone.length < 10) {
+      return { isValid: false, error: 'Geçerli bir telefon numarası giriniz (en az 10 haneli)' };
+    }
+
+    // Adres kontrolü (opsiyonel ama en az 10 karakter)
+    if (userAddress && userAddress.length < 10) {
+      return { isValid: false, error: 'Adres en az 10 karakter olmalıdır' };
     }
 
     if (!selectedPlan) {
@@ -96,7 +112,9 @@ export default function IframePaymentForm() {
         currency: selectedPlan.currency as 'TRY' | 'USD',
         planType: selectedPlan.name as 'premium',
         userEmail: currentUser.email,
-        userName: `${currentUser.firstName} ${currentUser.lastName}`
+        userName: `${userFirstName} ${userLastName}`,
+        userPhone: userPhone,
+        userAddress: userAddress
       };
 
       const response = await fetch('/api/payment/create-iframe', {
@@ -390,6 +408,77 @@ export default function IframePaymentForm() {
           </div>
         </div>
       )}
+
+      {/* Ad ve Soyad */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+        <div>
+          <label htmlFor="userFirstName" className="block text-lg font-semibold text-gray-900 mb-4">
+            Ad <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            id="userFirstName"
+            value={userFirstName}
+            onChange={(e) => setUserFirstName(e.target.value)}
+            placeholder="Adınız"
+            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-lg focus:border-blue-500 focus:outline-none transition-colors duration-200"
+            required
+          />
+        </div>
+        <div>
+          <label htmlFor="userLastName" className="block text-lg font-semibold text-gray-900 mb-4">
+            Soyad <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            id="userLastName"
+            value={userLastName}
+            onChange={(e) => setUserLastName(e.target.value)}
+            placeholder="Soyadınız"
+            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-lg focus:border-blue-500 focus:outline-none transition-colors duration-200"
+            required
+          />
+        </div>
+      </div>
+
+      {/* Adres */}
+      <div className="mb-8">
+        <label htmlFor="userAddress" className="block text-lg font-semibold text-gray-900 mb-4">
+          Adres <span className="text-gray-500">(Opsiyonel)</span>
+        </label>
+        <textarea
+          id="userAddress"
+          value={userAddress}
+          onChange={(e) => setUserAddress(e.target.value)}
+          placeholder="Adresinizi giriniz (en az 10 karakter)"
+          rows={3}
+          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-lg focus:border-blue-500 focus:outline-none transition-colors duration-200 resize-none"
+        />
+        <div className="mt-2 text-sm text-gray-600">
+          💡 Adres alanı opsiyoneldir ama doldurulursa en az 10 karakter olmalıdır.
+        </div>
+      </div>
+
+      {/* Telefon Numarası - PayTR için Zorunlu */}
+      <div className="mb-8">
+        <label htmlFor="userPhone" className="block text-lg font-semibold text-gray-900 mb-4">
+          Telefon Numarası <span className="text-red-500">*</span>
+        </label>
+        <div className="relative">
+          <input
+            type="tel"
+            id="userPhone"
+            value={userPhone}
+            onChange={(e) => setUserPhone(e.target.value)}
+            placeholder="5XX XXX XX XX"
+            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-lg focus:border-blue-500 focus:outline-none transition-colors duration-200"
+            required
+          />
+          <div className="mt-2 text-sm text-gray-600">
+            💡 PayTR için zorunlu alan. En az 10 haneli olmalıdır.
+          </div>
+        </div>
+      </div>
 
       {error && (
         <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-6">

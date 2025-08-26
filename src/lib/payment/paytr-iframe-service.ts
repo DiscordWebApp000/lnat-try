@@ -47,7 +47,7 @@ export class PaytrIframeService {
         max_installment: this.config.MAX_INSTALLMENT,
         user_name: paymentRequest.userName,
         user_address: paymentRequest.userAddress,
-        user_phone: paymentRequest.userPhone,
+        user_phone: this.formatPhoneNumber(paymentRequest.userPhone),
         merchant_ok_url: `${this.config.APP_URL}/payment/success?oid=${merchantOid}`,
         merchant_fail_url: `${this.config.APP_URL}/payment/failed?oid=${merchantOid}`,
         timeout_limit: this.config.TIMEOUT_LIMIT,
@@ -143,7 +143,7 @@ export class PaytrIframeService {
         const response = await fetch('https://api.ipify.org?format=json');
         const data = await response.json();
         return data.ip;
-      } catch (error) {
+      } catch {
         console.warn('Could not get external IP, using localhost');
         return '127.0.0.1';
       }
@@ -155,6 +155,28 @@ export class PaytrIframeService {
 
   isTestMode(): boolean {
     return this.config.TEST_MODE;
+  }
+
+  private formatPhoneNumber(phone: string | undefined): string {
+    if (!phone) return '';
+    
+    // Sadece rakamları al
+    const digitsOnly = phone.replace(/\D/g, '');
+    
+    // Türkiye telefon numarası formatı kontrolü
+    if (digitsOnly.startsWith('90') && digitsOnly.length >= 12) {
+      // +90 ile başlıyorsa, 90'ı kaldır
+      return digitsOnly.substring(2);
+    } else if (digitsOnly.startsWith('0') && digitsOnly.length >= 11) {
+      // 0 ile başlıyorsa, 0'ı kaldır
+      return digitsOnly.substring(1);
+    } else if (digitsOnly.length >= 10) {
+      // Direkt 10+ haneli ise olduğu gibi kullan
+      return digitsOnly;
+    }
+    
+    // Geçersiz format
+    return digitsOnly;
   }
 }
 
