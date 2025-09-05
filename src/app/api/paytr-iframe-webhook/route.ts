@@ -119,6 +119,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (status === 'success') {
+      console.log('✅ Başarılı ödeme tespit edildi, subscription aktif ediliyor...');
+      console.log('🔍 Webhook Data:', { merchant_oid, status, total_amount, test_mode: webhookData.test_mode });
+      
       // Premium abonelik oluştur
       try {
         // Plan ID'sini dinamik olarak çek
