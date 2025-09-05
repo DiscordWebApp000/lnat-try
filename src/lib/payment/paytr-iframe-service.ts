@@ -35,6 +35,14 @@ export class PaytrIframeService {
         (this.config.TEST_MODE ? 1 : 0)
       );
 
+      const merchantOkUrl = `${this.config.APP_URL}/payment/success?oid=${merchantOid}`;
+      const merchantFailUrl = `${this.config.APP_URL}/payment/failed?oid=${merchantOid}`;
+      
+      console.log('🔗 PayTR iFrame URL\'leri:');
+      console.log('✅ Success URL:', merchantOkUrl);
+      console.log('❌ Fail URL:', merchantFailUrl);
+      console.log('🌐 App URL:', this.config.APP_URL);
+      
       const iframeData: PaytrIframeData = {
         merchant_id: this.config.MERCHANT_ID,
         user_ip: userIp,
@@ -48,8 +56,8 @@ export class PaytrIframeService {
         user_name: paymentRequest.userName,
         user_address: paymentRequest.userAddress,
         user_phone: this.formatPhoneNumber(paymentRequest.userPhone),
-        merchant_ok_url: `${this.config.APP_URL}/payment/success?oid=${merchantOid}`,
-        merchant_fail_url: `${this.config.APP_URL}/payment/failed?oid=${merchantOid}`,
+        merchant_ok_url: merchantOkUrl,
+        merchant_fail_url: merchantFailUrl,
         timeout_limit: this.config.TIMEOUT_LIMIT,
         debug_on: this.config.DEBUG_ON,
         lang: this.config.LANG,
