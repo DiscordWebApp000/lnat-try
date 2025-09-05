@@ -12,13 +12,19 @@ export async function POST(request: NextRequest) {
     // Body'yi al
     let body;
     try {
-      body = await request.json();
-      console.log('📥 JSON Body:', body);
-    } catch (error) {
-      console.log('❌ JSON parse error:', error);
       const textBody = await request.text();
       console.log('📄 Text Body:', textBody);
-      body = { raw: textBody };
+      
+      // JSON parse etmeye çalış
+      try {
+        body = JSON.parse(textBody);
+        console.log('📥 JSON Body:', body);
+      } catch {
+        body = { raw: textBody };
+      }
+    } catch (error) {
+      console.log('❌ Body read error:', error);
+      body = { error: 'Body read failed' };
     }
     
     // PayTR webhook yanıtı (PayTR'nin beklediği format)
