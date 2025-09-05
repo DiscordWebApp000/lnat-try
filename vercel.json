@@ -1,5 +1,7 @@
 {
- 
+  "env": {
+    "NODE_ENV": "production"
+  },
   "functions": {
     "src/app/api/payment/create/route.ts": {
       "maxDuration": 30
