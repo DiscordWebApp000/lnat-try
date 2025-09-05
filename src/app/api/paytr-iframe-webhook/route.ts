@@ -119,10 +119,20 @@ export async function POST(request: NextRequest) {
     }
 
     if (status === 'success') {
+      console.log('✅ Başarılı ödeme tespit edildi, subscription aktif ediliyor...');
+      
       // Premium abonelik oluştur
       try {
         // Plan ID'sini merchant_oid'den çıkar (format: order{userId}{timestamp}{random})
         const planId = 'premium'; // varsayılan
+        
+        console.log('🎯 Subscription aktivasyonu başlatılıyor:', {
+          userId,
+          planId,
+          amount: total_amount / 100,
+          currency: 'TRY',
+          paymentId: merchant_oid
+        });
         
         // Subscription'ı aktif et
         await subscriptionService.activateSubscription(userId, planId, {
@@ -132,7 +142,10 @@ export async function POST(request: NextRequest) {
           currency: 'TRY'
         });
         
+        console.log('🎉 Subscription başarıyla aktif edildi!');
+        
       } catch (subscriptionError) {
+        console.error('❌ Subscription activation error:', subscriptionError);
         // Hata olsa bile webhook'u başarılı olarak işaretle (ödeme başarılı)
       }
       
