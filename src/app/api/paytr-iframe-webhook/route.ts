@@ -59,6 +59,10 @@ function validateIframeWebhookData(data: any): { isValid: boolean; error?: strin
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🔄 PayTR iFrame Webhook başlatıldı');
+    console.log('📡 Request method:', request.method);
+    console.log('🌐 Request URL:', request.url);
+    
     // Request body'yi parse et
     let webhookData;
     const contentType = request.headers.get('content-type');
@@ -67,9 +71,11 @@ export async function POST(request: NextRequest) {
       // PayTR form data gönderiyor
       const formData = await request.formData();
       webhookData = Object.fromEntries(formData.entries());
+      console.log('📥 Webhook Data (Form):', webhookData);
     } else {
       // JSON data
       webhookData = await request.json();
+      console.log('📥 Webhook Data (JSON):', webhookData);
     }
     
     // Webhook data validation
@@ -119,9 +125,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (status === 'success') {
-      console.log('✅ Başarılı ödeme tespit edildi, subscription aktif ediliyor...');
-      console.log('🔍 Webhook Data:', { merchant_oid, status, total_amount, test_mode: webhookData.test_mode });
-      
       // Premium abonelik oluştur
       try {
         // Plan ID'sini dinamik olarak çek
