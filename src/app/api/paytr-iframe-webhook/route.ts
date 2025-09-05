@@ -168,13 +168,26 @@ export async function POST(request: NextRequest) {
             console.log('🌐 Plans API URL:', `${appUrl}/api/subscription/plans`);
             
             const plansResponse = await fetch(`${appUrl}/api/subscription/plans`);
+            console.log('📡 Plans API Response Status:', plansResponse.status);
+            
             const plansData = await plansResponse.json();
+            console.log('📋 Plans API Data:', JSON.stringify(plansData, null, 2));
             
             if (plansData.success && plansData.plans && plansData.plans.length > 0) {
               // Varsayılan planı bul veya ilk planı kullan
               const defaultPlan = plansData.plans.find((plan: any) => plan.isDefault) || plansData.plans[0];
               planId = defaultPlan.id;
-              console.log('📋 Dinamik plan seçildi:', { planId, planName: defaultPlan.name });
+              console.log('📋 Dinamik plan seçildi:', { 
+                planId, 
+                planName: defaultPlan.name,
+                isDefault: defaultPlan.isDefault,
+                allPlans: plansData.plans.map((p: any) => ({ id: p.id, name: p.name, isDefault: p.isDefault }))
+              });
+            } else {
+              console.log('❌ Plans API başarısız veya plan bulunamadı:', { 
+                success: plansData.success, 
+                plansCount: plansData.plans?.length || 0 
+              });
             }
           } catch (planError) {
             console.log('⚠️ Plan çekme hatası, fallback plan kullanılıyor:', planError);
