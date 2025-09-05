@@ -27,13 +27,18 @@ export class SubscriptionService {
     }
   ): Promise<void> {
     try {
+      console.log('🔍 SubscriptionService: Plan aranıyor:', { planId, userId });
+      
       // Plan bilgisini al - document ID'ye göre direkt arama
       const planDocRef = doc(db, 'subscriptionPlans', planId);
       const planDoc = await getDoc(planDocRef);
       
       if (!planDoc.exists()) {
+        console.error('❌ SubscriptionService: Plan bulunamadı:', planId);
         throw new Error(`Plan bulunamadı: ${planId}`);
       }
+      
+      console.log('✅ SubscriptionService: Plan bulundu:', planDoc.data());
       
       const planData = planDoc.data();
       const plan: SubscriptionPlan = {
@@ -100,9 +105,13 @@ export class SubscriptionService {
       });
       
       // User'ı güncelle
+      console.log('👤 SubscriptionService: User güncelleniyor:', { userId, subscriptionId });
       await this.updateUserSubscriptionData(userId, subscription);
       
+      console.log('🎉 SubscriptionService: Subscription başarıyla oluşturuldu!');
+      
     } catch (error) {
+      console.error('❌ SubscriptionService: Hata:', error);
       throw error;
     }
   }
