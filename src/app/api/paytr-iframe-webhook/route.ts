@@ -163,7 +163,11 @@ export async function POST(request: NextRequest) {
         } else {
           // Dinamik olarak varsayılan planı çek
           try {
-            const plansResponse = await fetch('https://lnatt.vercel.app/api/subscription/plans');
+            // Environment variable'dan URL'yi al, yoksa fallback kullan
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://lnatt.vercel.app';
+            console.log('🌐 Plans API URL:', `${appUrl}/api/subscription/plans`);
+            
+            const plansResponse = await fetch(`${appUrl}/api/subscription/plans`);
             const plansData = await plansResponse.json();
             
             if (plansData.success && plansData.plans && plansData.plans.length > 0) {
