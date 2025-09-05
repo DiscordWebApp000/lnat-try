@@ -95,24 +95,18 @@ export async function POST(request: NextRequest) {
     const { merchant_oid, status } = webhookData;
     const total_amount = typeof webhookData.total_amount === 'string' ? parseInt(webhookData.total_amount) : webhookData.total_amount;
     
-    // merchant_oid'den kullanıcı bilgisini çıkar (format: order{userId}{planId}{timestamp}{random})
+    // merchant_oid'den kullanıcı bilgisini çıkar (format: order{userId}{timestamp}{random})
     let userId = '';
-    let extractedPlanId = '';
     
     if (merchant_oid && merchant_oid.startsWith('order')) {
-      // order{userId}{planId}{timestamp}{random} formatından userId ve planId'yi çıkar
+      // order{userId}{timestamp}{random} formatından userId'yi çıkar
       const orderPrefix = 'order';
       const remaining = merchant_oid.substring(orderPrefix.length);
       
-      // Firebase UID genellikle 28 karakter, planId 11 karakter, timestamp 13 karakter, random 6 karakter
+      // Firebase UID genellikle 28 karakter, timestamp 13 karakter, random 6 karakter
       // En az 28 karakter varsa ilk 28'i userId olarak al
       if (remaining.length >= 28) {
         userId = remaining.substring(0, 28);
-        
-        // Kalan kısımdan planId'yi çıkar (11 karakter)
-        if (remaining.length >= 39) { // 28 + 11
-          extractedPlanId = remaining.substring(28, 39);
-        }
       } else {
         // Kısa ise tümünü al
         userId = remaining;
@@ -127,29 +121,23 @@ export async function POST(request: NextRequest) {
     if (status === 'success') {
       // Premium abonelik oluştur
       try {
-        // Plan ID'sini belirle (merchant_oid'den çıkarılan veya varsayılan)
+        // Plan ID'sini dinamik olarak çek
         let planId = 'hB44i1d7FwjtSECViZH7'; // fallback plan ID
         
-        if (extractedPlanId) {
-          // merchant_oid'den çıkarılan plan ID'sini kullan
-          planId = extractedPlanId;
-        } else {
-          // Dinamik olarak varsayılan planı çek
-          try {
-            // Environment variable'dan URL'yi al, yoksa fallback kullan
-            const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://lnatt.vercel.app';
-            
-            const plansResponse = await fetch(`${appUrl}/api/subscription/plans`);
-            const plansData = await plansResponse.json();
-            
-            if (plansData.success && plansData.plans && plansData.plans.length > 0) {
-              // Varsayılan planı bul veya ilk planı kullan
-              const defaultPlan = plansData.plans.find((plan: any) => plan.isDefault) || plansData.plans[0];
-              planId = defaultPlan.id;
-            }
-          } catch (planError) {
-            // Fallback plan kullanılacak
+        try {
+          // Environment variable'dan URL'yi al, yoksa fallback kullan
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://lnatt.vercel.app';
+          
+          const plansResponse = await fetch(`${appUrl}/api/subscription/plans`);
+          const plansData = await plansResponse.json();
+          
+          if (plansData.success && plansData.plans && plansData.plans.length > 0) {
+            // Varsayılan planı bul veya ilk planı kullan
+            const defaultPlan = plansData.plans.find((plan: any) => plan.isDefault) || plansData.plans[0];
+            planId = defaultPlan.id;
           }
+        } catch (planError) {
+          // Fallback plan kullanılacak
         }
         
         // Subscription'ı aktif et
