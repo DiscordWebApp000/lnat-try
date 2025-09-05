@@ -40,8 +40,14 @@ function validateIframeWebhookData(data: any): { isValid: boolean; error?: strin
     return { isValid: false, error: 'Invalid status' };
   }
   
-  if (!data.total_amount || typeof data.total_amount !== 'number' || data.total_amount <= 0) {
+  if (!data.total_amount || (typeof data.total_amount !== 'number' && typeof data.total_amount !== 'string')) {
     return { isValid: false, error: 'Invalid total_amount' };
+  }
+  
+  // String ise number'a çevir ve kontrol et
+  const amount = typeof data.total_amount === 'string' ? parseInt(data.total_amount) : data.total_amount;
+  if (isNaN(amount) || amount <= 0) {
+    return { isValid: false, error: 'Invalid total_amount value' };
   }
   
   if (!data.hash || typeof data.hash !== 'string') {
@@ -103,7 +109,8 @@ export async function POST(request: NextRequest) {
       });
     }
     
-    const { merchant_oid, status, total_amount } = webhookData;
+    const { merchant_oid, status } = webhookData;
+    const total_amount = typeof webhookData.total_amount === 'string' ? parseInt(webhookData.total_amount) : webhookData.total_amount;
     
     // merchant_oid'den kullanıcı bilgisini çıkar (format: order{userId}{timestamp}{random})
     let userId = '';
