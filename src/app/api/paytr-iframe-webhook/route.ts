@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
         if (extractedPlanId) {
           // merchant_oid'den çıkarılan plan ID'sini kullan
           planId = extractedPlanId;
-          console.log('📋 merchant_oid'den plan ID çıkarıldı:', { planId });
+          console.log('📋 merchant_oid\'den plan ID çıkarıldı:', { planId });
         } else {
           // Dinamik olarak varsayılan planı çek
           try {
