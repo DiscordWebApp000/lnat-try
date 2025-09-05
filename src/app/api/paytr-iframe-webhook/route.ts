@@ -65,8 +65,19 @@ export async function POST(request: NextRequest) {
     console.log('MERCHANT_SALT:', PAYTR_CONFIG.MERCHANT_SALT ? 'SET' : 'MISSING');
     
     // Request body'yi parse et
-    const webhookData = await request.json();
-    console.log('📥 Webhook Data:', webhookData);
+    let webhookData;
+    const contentType = request.headers.get('content-type');
+    
+    if (contentType?.includes('application/x-www-form-urlencoded')) {
+      // PayTR form data gönderiyor
+      const formData = await request.formData();
+      webhookData = Object.fromEntries(formData.entries());
+      console.log('📥 Webhook Data (Form):', webhookData);
+    } else {
+      // JSON data
+      webhookData = await request.json();
+      console.log('📥 Webhook Data (JSON):', webhookData);
+    }
     
     // Webhook data validation
     const validation = validateIframeWebhookData(webhookData);
