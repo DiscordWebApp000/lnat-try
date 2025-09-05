@@ -58,6 +58,12 @@ export async function POST(request: NextRequest) {
     console.log('🌐 Request URL:', request.url);
     console.log('🔧 Request method:', request.method);
     
+    // Environment variables kontrolü
+    console.log('🔑 Environment check:');
+    console.log('MERCHANT_ID:', PAYTR_CONFIG.MERCHANT_ID ? 'SET' : 'MISSING');
+    console.log('MERCHANT_KEY:', PAYTR_CONFIG.MERCHANT_KEY ? 'SET' : 'MISSING');
+    console.log('MERCHANT_SALT:', PAYTR_CONFIG.MERCHANT_SALT ? 'SET' : 'MISSING');
+    
     // Request body'yi parse et
     const webhookData = await request.json();
     console.log('📥 Webhook data alındı:', {
