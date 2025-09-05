@@ -141,8 +141,8 @@ export async function POST(request: NextRequest) {
       
       // Premium abonelik oluştur
       try {
-        // Plan ID'sini merchant_oid'den çıkar (format: order{userId}{timestamp}{random})
-        const planId = 'premium'; // varsayılan
+        // Plan ID'sini Firebase'den al (varsayılan plan)
+        const planId = 'hB44i1d7FwjtSECViZH7'; // Firebase'deki premium plan ID'si
         
         console.log('🎯 Subscription aktivasyonu başlatılıyor:', {
           userId,
