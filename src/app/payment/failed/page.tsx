@@ -8,6 +8,7 @@ import Link from 'next/link';
 function PaymentFailedContent() {
   const searchParams = useSearchParams();
   const callbackId = searchParams.get('callback_id');
+  const orderId = searchParams.get('oid'); // PayTR iFrame'den gelen order ID
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -45,9 +46,9 @@ function PaymentFailedContent() {
           </Link>
         </div>
 
-        {callbackId && (
+        {(callbackId || orderId) && (
           <p className="text-xs text-gray-500 mt-4">
-            Referans ID: {callbackId}
+            Referans ID: {callbackId || orderId}
           </p>
         )}
 

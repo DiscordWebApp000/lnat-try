@@ -8,19 +8,20 @@ import Link from 'next/link';
 function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const callbackId = searchParams.get('callback_id');
+  const orderId = searchParams.get('oid'); // PayTR iFrame'den gelen order ID
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    // Callback ID varsa webhook durumunu kontrol et
-    if (callbackId) {
+    // Callback ID veya Order ID varsa webhook durumunu kontrol et
+    if (callbackId || orderId) {
       checkPaymentStatus();
     } else {
-      // Callback ID yoksa direkt success göster
+      // Hiçbiri yoksa direkt success göster
       setStatus('success');
       setMessage('Ödeme başarıyla tamamlandı! Aboneliğiniz aktif edildi.');
     }
-  }, [callbackId]);
+  }, [callbackId, orderId]);
 
   const checkPaymentStatus = async () => {
     try {
@@ -103,9 +104,9 @@ function PaymentSuccessContent() {
           </Link>
         </div>
 
-        {callbackId && (
+        {(callbackId || orderId) && (
           <p className="text-xs text-gray-500 mt-4">
-            Referans ID: {callbackId}
+            Referans ID: {callbackId || orderId}
           </p>
         )}
       </div>
