@@ -53,12 +53,27 @@ function validateIframeWebhookData(data: any): { isValid: boolean; error?: strin
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🔄 PayTR iFrame Webhook başlatıldı');
+    console.log('📡 Request method:', request.method);
+    console.log('🌐 Request URL:', request.url);
+    console.log('📋 Headers:', Object.fromEntries(request.headers.entries()));
+    
+    // Environment variables kontrolü
+    console.log('🔑 Environment Variables:');
+    console.log('MERCHANT_ID:', PAYTR_CONFIG.MERCHANT_ID ? 'SET' : 'MISSING');
+    console.log('MERCHANT_KEY:', PAYTR_CONFIG.MERCHANT_KEY ? 'SET' : 'MISSING');
+    console.log('MERCHANT_SALT:', PAYTR_CONFIG.MERCHANT_SALT ? 'SET' : 'MISSING');
+    
     // Request body'yi parse et
     const webhookData = await request.json();
+    console.log('📥 Webhook Data:', webhookData);
     
     // Webhook data validation
     const validation = validateIframeWebhookData(webhookData);
+    console.log('🔍 Validation Result:', validation);
+    
     if (!validation.isValid) {
+      console.log('❌ Validation failed:', validation.error);
       return new NextResponse('VALIDATION_ERROR', {
         status: 400,
         headers: { 'Content-Type': 'text/plain' }
@@ -66,7 +81,11 @@ export async function POST(request: NextRequest) {
     }
     
     // Webhook doğrulama (hash kontrolü)
-    if (!verifyIframeWebhook(webhookData)) {
+    const hashVerification = verifyIframeWebhook(webhookData);
+    console.log('🔐 Hash Verification:', hashVerification);
+    
+    if (!hashVerification) {
+      console.log('❌ Hash verification failed');
       return new NextResponse('HASH_ERROR', {
         status: 400,
         headers: { 'Content-Type': 'text/plain' }
@@ -140,4 +159,13 @@ export async function POST(request: NextRequest) {
       },
     });
   }
+}
+
+export async function GET() {
+  console.log('🔍 PayTR iFrame Webhook GET request alındı');
+  return NextResponse.json({
+    status: 'OK',
+    message: 'PayTR iFrame Webhook GET endpoint çalışıyor',
+    timestamp: new Date().toISOString()
+  });
 }
