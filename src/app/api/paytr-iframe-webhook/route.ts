@@ -112,23 +112,35 @@ export async function POST(request: NextRequest) {
     const { merchant_oid, status } = webhookData;
     const total_amount = typeof webhookData.total_amount === 'string' ? parseInt(webhookData.total_amount) : webhookData.total_amount;
     
-    // merchant_oid'den kullanıcı bilgisini çıkar (format: order{userId}{timestamp}{random})
+    // merchant_oid'den kullanıcı bilgisini çıkar (format: order{userId}{planId}{timestamp}{random})
     let userId = '';
+    let extractedPlanId = '';
+    
     if (merchant_oid && merchant_oid.startsWith('order')) {
-      // order{userId}{timestamp}{random} formatından userId'yi çıkar
-      // userId genellikle Firebase UID formatında (28 karakter)
+      // order{userId}{planId}{timestamp}{random} formatından userId ve planId'yi çıkar
       const orderPrefix = 'order';
       const remaining = merchant_oid.substring(orderPrefix.length);
       
-      // Firebase UID genellikle 28 karakter, timestamp 13 karakter, random 6 karakter
+      // Firebase UID genellikle 28 karakter, planId 11 karakter, timestamp 13 karakter, random 6 karakter
       // En az 28 karakter varsa ilk 28'i userId olarak al
       if (remaining.length >= 28) {
         userId = remaining.substring(0, 28);
+        
+        // Kalan kısımdan planId'yi çıkar (11 karakter)
+        if (remaining.length >= 39) { // 28 + 11
+          extractedPlanId = remaining.substring(28, 39);
+        }
       } else {
         // Kısa ise tümünü al
         userId = remaining;
       }
       
+      console.log('🔍 merchant_oid analizi:', { 
+        merchant_oid, 
+        extractedUserId: userId, 
+        extractedPlanId,
+        remainingLength: remaining.length 
+      });
     }
     
     // Hala userId bulunamadıysa, webhook'u işle
@@ -141,22 +153,28 @@ export async function POST(request: NextRequest) {
       
       // Premium abonelik oluştur
       try {
-        // Plan ID'sini Firebase'den dinamik olarak al (varsayılan plan)
+        // Plan ID'sini belirle (merchant_oid'den çıkarılan veya varsayılan)
         let planId = 'hB44i1d7FwjtSECViZH7'; // fallback plan ID
         
-        try {
-          // Aktif planları çek
-          const plansResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://lnatt.vercel.app'}/api/subscription/plans`);
-          const plansData = await plansResponse.json();
-          
-          if (plansData.success && plansData.plans && plansData.plans.length > 0) {
-            // Varsayılan planı bul veya ilk planı kullan
-            const defaultPlan = plansData.plans.find((plan: any) => plan.isDefault) || plansData.plans[0];
-            planId = defaultPlan.id;
-            console.log('📋 Dinamik plan seçildi:', { planId, planName: defaultPlan.name });
+        if (extractedPlanId) {
+          // merchant_oid'den çıkarılan plan ID'sini kullan
+          planId = extractedPlanId;
+          console.log('📋 merchant_oid'den plan ID çıkarıldı:', { planId });
+        } else {
+          // Dinamik olarak varsayılan planı çek
+          try {
+            const plansResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://lnatt.vercel.app'}/api/subscription/plans`);
+            const plansData = await plansResponse.json();
+            
+            if (plansData.success && plansData.plans && plansData.plans.length > 0) {
+              // Varsayılan planı bul veya ilk planı kullan
+              const defaultPlan = plansData.plans.find((plan: any) => plan.isDefault) || plansData.plans[0];
+              planId = defaultPlan.id;
+              console.log('📋 Dinamik plan seçildi:', { planId, planName: defaultPlan.name });
+            }
+          } catch (planError) {
+            console.log('⚠️ Plan çekme hatası, fallback plan kullanılıyor:', planError);
           }
-        } catch (planError) {
-          console.log('⚠️ Plan çekme hatası, fallback plan kullanılıyor:', planError);
         }
         
         console.log('🎯 Subscription aktivasyonu başlatılıyor:', {
