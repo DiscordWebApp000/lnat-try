@@ -3,6 +3,7 @@ import {
   collection, 
   doc, 
   getDocs, 
+  getDoc,
   setDoc, 
   updateDoc, 
   query, 
@@ -26,17 +27,21 @@ export class SubscriptionService {
     }
   ): Promise<void> {
     try {
-      // Plan bilgisini al
-      const planDoc = await getDocs(query(
-        collection(db, 'subscriptionPlans'),
-        where('id', '==', planId)
-      ));
+      // Plan bilgisini al - document ID'ye göre direkt arama
+      const planDocRef = doc(db, 'subscriptionPlans', planId);
+      const planDoc = await getDoc(planDocRef);
       
-      if (planDoc.empty) {
+      if (!planDoc.exists()) {
         throw new Error(`Plan bulunamadı: ${planId}`);
       }
       
-      const plan = planDoc.docs[0].data() as SubscriptionPlan;
+      const planData = planDoc.data();
+      const plan: SubscriptionPlan = {
+        ...planData,
+        id: planDoc.id, // Document ID'yi kullan
+        createdAt: planData.createdAt?.toDate ? planData.createdAt.toDate() : planData.createdAt,
+        updatedAt: planData.updatedAt?.toDate ? planData.updatedAt.toDate() : planData.updatedAt
+      } as SubscriptionPlan;
       
       // Subscription oluştur
       const subscriptionId = `sub_${userId}_${Date.now()}`;
