@@ -124,18 +124,33 @@ export class SubscriptionService {
     try {
       const userDoc = doc(db, 'users', userId);
       
-      // User'ı güncelle
+      // User'ı güncelle - subscription object'ini tamamen değiştir
+      const subscriptionData = {
+        id: subscription.id,
+        status: subscription.status,
+        planId: subscription.planId,
+        planName: subscription.planName,
+        startDate: Timestamp.fromDate(subscription.startDate),
+        endDate: Timestamp.fromDate(subscription.endDate),
+        autoRenew: subscription.autoRenew,
+        permissions: subscription.permissions
+      };
+      
+      console.log('👤 SubscriptionService: User güncelleniyor:', { 
+        userId, 
+        subscriptionId: subscription.id,
+        subscriptionData 
+      });
+      
       await updateDoc(userDoc, {
         currentSubscriptionPlanId: subscription.planId,
         subscriptionPermissions: subscription.permissions,
         lastSubscriptionDate: Timestamp.fromDate(subscription.startDate),
         totalSubscriptions: 1, // TODO: Increment existing value
-        'subscription.id': subscription.id,
-        'subscription.status': subscription.status,
-        'subscription.planId': subscription.planId,
-        'subscription.startDate': Timestamp.fromDate(subscription.startDate),
-        'subscription.endDate': Timestamp.fromDate(subscription.endDate)
+        subscription: subscriptionData
       });
+      
+      console.log('✅ SubscriptionService: User başarıyla güncellendi!');
       
     } catch (error) {
       throw error;
