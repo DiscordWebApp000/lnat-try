@@ -27,14 +27,10 @@ export default function SubscriptionPage() {
   const loadSubscriptionPlans = useCallback(async () => {
     try {
       setLoadingPlans(true);
-      console.log('🔍 Loading subscription plans...');
-      
       const response = await fetch('/api/subscription/plans');
-      console.log('🔍 Response status:', response.status);
       
       if (response.ok) {
         const data = await response.json();
-        console.log('🔍 Plans data:', data);
         setSubscriptionPlans(data.plans || []);
       } else {
         const errorData = await response.json();

@@ -59,17 +59,6 @@ function validateIframeWebhookData(data: any): { isValid: boolean; error?: strin
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔄 PayTR iFrame Webhook başlatıldı');
-    console.log('📡 Request method:', request.method);
-    console.log('🌐 Request URL:', request.url);
-    console.log('📋 Headers:', Object.fromEntries(request.headers.entries()));
-    
-    // Environment variables kontrolü
-    console.log('🔑 Environment Variables:');
-    console.log('MERCHANT_ID:', PAYTR_CONFIG.MERCHANT_ID ? 'SET' : 'MISSING');
-    console.log('MERCHANT_KEY:', PAYTR_CONFIG.MERCHANT_KEY ? 'SET' : 'MISSING');
-    console.log('MERCHANT_SALT:', PAYTR_CONFIG.MERCHANT_SALT ? 'SET' : 'MISSING');
-    
     // Request body'yi parse et
     let webhookData;
     const contentType = request.headers.get('content-type');
@@ -78,19 +67,15 @@ export async function POST(request: NextRequest) {
       // PayTR form data gönderiyor
       const formData = await request.formData();
       webhookData = Object.fromEntries(formData.entries());
-      console.log('📥 Webhook Data (Form):', webhookData);
     } else {
       // JSON data
       webhookData = await request.json();
-      console.log('📥 Webhook Data (JSON):', webhookData);
     }
     
     // Webhook data validation
     const validation = validateIframeWebhookData(webhookData);
-    console.log('🔍 Validation Result:', validation);
     
     if (!validation.isValid) {
-      console.log('❌ Validation failed:', validation.error);
       return new NextResponse('VALIDATION_ERROR', {
         status: 400,
         headers: { 'Content-Type': 'text/plain' }
@@ -99,10 +84,8 @@ export async function POST(request: NextRequest) {
     
     // Webhook doğrulama (hash kontrolü)
     const hashVerification = verifyIframeWebhook(webhookData);
-    console.log('🔐 Hash Verification:', hashVerification);
     
     if (!hashVerification) {
-      console.log('❌ Hash verification failed');
       return new NextResponse('HASH_ERROR', {
         status: 400,
         headers: { 'Content-Type': 'text/plain' }
@@ -134,13 +117,6 @@ export async function POST(request: NextRequest) {
         // Kısa ise tümünü al
         userId = remaining;
       }
-      
-      console.log('🔍 merchant_oid analizi:', { 
-        merchant_oid, 
-        extractedUserId: userId, 
-        extractedPlanId,
-        remainingLength: remaining.length 
-      });
     }
     
     // Hala userId bulunamadıysa, webhook'u işle
@@ -149,8 +125,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (status === 'success') {
-      console.log('✅ Başarılı ödeme tespit edildi, subscription aktif ediliyor...');
-      
       // Premium abonelik oluştur
       try {
         // Plan ID'sini belirle (merchant_oid'den çıkarılan veya varsayılan)
@@ -159,48 +133,24 @@ export async function POST(request: NextRequest) {
         if (extractedPlanId) {
           // merchant_oid'den çıkarılan plan ID'sini kullan
           planId = extractedPlanId;
-          console.log('📋 merchant_oid\'den plan ID çıkarıldı:', { planId });
         } else {
           // Dinamik olarak varsayılan planı çek
           try {
             // Environment variable'dan URL'yi al, yoksa fallback kullan
             const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://lnatt.vercel.app';
-            console.log('🌐 Plans API URL:', `${appUrl}/api/subscription/plans`);
             
             const plansResponse = await fetch(`${appUrl}/api/subscription/plans`);
-            console.log('📡 Plans API Response Status:', plansResponse.status);
-            
             const plansData = await plansResponse.json();
-            console.log('📋 Plans API Data:', JSON.stringify(plansData, null, 2));
             
             if (plansData.success && plansData.plans && plansData.plans.length > 0) {
               // Varsayılan planı bul veya ilk planı kullan
               const defaultPlan = plansData.plans.find((plan: any) => plan.isDefault) || plansData.plans[0];
               planId = defaultPlan.id;
-              console.log('📋 Dinamik plan seçildi:', { 
-                planId, 
-                planName: defaultPlan.name,
-                isDefault: defaultPlan.isDefault,
-                allPlans: plansData.plans.map((p: any) => ({ id: p.id, name: p.name, isDefault: p.isDefault }))
-              });
-            } else {
-              console.log('❌ Plans API başarısız veya plan bulunamadı:', { 
-                success: plansData.success, 
-                plansCount: plansData.plans?.length || 0 
-              });
             }
           } catch (planError) {
-            console.log('⚠️ Plan çekme hatası, fallback plan kullanılıyor:', planError);
+            // Fallback plan kullanılacak
           }
         }
-        
-        console.log('🎯 Subscription aktivasyonu başlatılıyor:', {
-          userId,
-          planId,
-          amount: total_amount / 100,
-          currency: 'TRY',
-          paymentId: merchant_oid
-        });
         
         // Subscription'ı aktif et
         await subscriptionService.activateSubscription(userId, planId, {
@@ -210,10 +160,8 @@ export async function POST(request: NextRequest) {
           currency: 'TRY'
         });
         
-        console.log('🎉 Subscription başarıyla aktif edildi!');
-        
       } catch (subscriptionError) {
-        console.error('❌ Subscription activation error:', subscriptionError);
+        console.error('Subscription activation error:', subscriptionError);
         // Hata olsa bile webhook'u başarılı olarak işaretle (ödeme başarılı)
       }
       
@@ -243,7 +191,6 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-  console.log('🔍 PayTR iFrame Webhook GET request alındı');
   return NextResponse.json({
     status: 'OK',
     message: 'PayTR iFrame Webhook GET endpoint çalışıyor',

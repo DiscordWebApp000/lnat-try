@@ -38,9 +38,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadPermissions = useCallback(async (userId: string) => {
     try {
-      console.log('🔍 Loading permissions for user:', userId);
       dispatch(fetchUserPermissions(userId));
-      console.log('🔍 Dispatched fetchUserPermissions');
     } catch (error) {
       console.error('Error loading permissions:', error);
     }
@@ -59,25 +57,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [firebaseUser, dispatch, loadPermissions]);
 
   const hasPermission = useCallback((tool: string): boolean => {
-    console.log('🔍 hasPermission called for tool:', tool);
-    console.log('🔍 Current user:', currentUser);
-    console.log('🔍 User permissions:', userPermissions);
-    
     if (!currentUser) {
-      console.log('🔍 No current user, permission denied');
       return false;
     }
     
     // Admin her zaman erişebilir
     if (currentUser.role === 'admin') {
-      console.log('🔍 Admin user, permission granted');
       return true;
     }
     
     // Explicit permission varsa kontrol et
     const hasExplicitPermission = userPermissions.some((up: any) => up.permissionId === tool && up.isActive);
     if (hasExplicitPermission) {
-      console.log('🔍 Explicit permission found, access granted');
       return true;
     }
     
@@ -96,17 +87,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       const isTrialActive = now < trialEnd;
-      console.log('🔍 Trial check - now:', now, 'trialEnd:', trialEnd, 'isActive:', isTrialActive);
       
       if (isTrialActive) {
-        console.log('🔍 Trial is active, permission granted');
         return true;
       }
     }
     
     // Subscription kontrolü
     if (currentUser.subscription?.status === 'premium') {
-      console.log('🔍 Premium subscription found, permission granted');
       return true;
     }
     
@@ -114,15 +102,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const now = new Date();
       const trialEnd = currentUser.subscription.trialEndsAt;
       const isTrialActive = now < trialEnd;
-      console.log('🔍 Subscription trial check - trialEndsAt:', trialEnd, 'isActive:', isTrialActive);
       
       if (isTrialActive) {
-        console.log('🔍 Subscription trial is active, permission granted');
         return true;
       }
     }
     
-    console.log('🔍 No permission found, access denied');
     return false;
   }, [currentUser, userPermissions]);
 
