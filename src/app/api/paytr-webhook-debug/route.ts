@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔍 Debug Webhook başlatıldı');
+    console.log('🔍 PayTR Webhook başlatıldı');
     
     // Request bilgilerini logla
     console.log('📡 Method:', request.method);
@@ -21,24 +21,17 @@ export async function POST(request: NextRequest) {
       body = { raw: textBody };
     }
     
-    // Basit yanıt döndür
+    // PayTR webhook yanıtı (PayTR'nin beklediği format)
     return NextResponse.json({
-      status: 'OK',
-      message: 'Debug webhook çalışıyor',
-      received: {
-        method: request.method,
-        body: body,
-        timestamp: new Date().toISOString()
-      }
+      status: 'success'
     });
     
   } catch (error) {
-    console.error('❌ Debug webhook error:', error);
+    console.error('❌ PayTR Webhook error:', error);
     
     return NextResponse.json({
-      status: 'ERROR',
-      error: error instanceof Error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString()
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }
