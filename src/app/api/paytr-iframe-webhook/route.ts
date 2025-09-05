@@ -53,31 +53,12 @@ function validateIframeWebhookData(data: any): { isValid: boolean; error?: strin
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔄 iFrame Webhook başlatıldı');
-    console.log('📡 Request headers:', Object.fromEntries(request.headers.entries()));
-    console.log('🌐 Request URL:', request.url);
-    console.log('🔧 Request method:', request.method);
-    
-    // Environment variables kontrolü
-    console.log('🔑 Environment check:');
-    console.log('MERCHANT_ID:', PAYTR_CONFIG.MERCHANT_ID ? 'SET' : 'MISSING');
-    console.log('MERCHANT_KEY:', PAYTR_CONFIG.MERCHANT_KEY ? 'SET' : 'MISSING');
-    console.log('MERCHANT_SALT:', PAYTR_CONFIG.MERCHANT_SALT ? 'SET' : 'MISSING');
-    
     // Request body'yi parse et
     const webhookData = await request.json();
-    console.log('📥 Webhook data alındı:', {
-      merchant_oid: webhookData.merchant_oid,
-      status: webhookData.status,
-      total_amount: webhookData.total_amount,
-      payment_type: webhookData.payment_type,
-      currency: webhookData.currency
-    });
     
     // Webhook data validation
     const validation = validateIframeWebhookData(webhookData);
     if (!validation.isValid) {
-      console.error('❌ Webhook validation hatası:', validation.error);
       return new NextResponse('VALIDATION_ERROR', {
         status: 400,
         headers: { 'Content-Type': 'text/plain' }
@@ -86,15 +67,12 @@ export async function POST(request: NextRequest) {
     
     // Webhook doğrulama (hash kontrolü)
     if (!verifyIframeWebhook(webhookData)) {
-      console.error('❌ Webhook hash doğrulama hatası');
       return new NextResponse('HASH_ERROR', {
         status: 400,
         headers: { 'Content-Type': 'text/plain' }
       });
     }
     
-    console.log('✅ Webhook hash doğrulandı');
-
     const { merchant_oid, status, total_amount } = webhookData;
     
     // merchant_oid'den kullanıcı bilgisini çıkar (format: order{userId}{timestamp}{random})
@@ -114,31 +92,18 @@ export async function POST(request: NextRequest) {
         userId = remaining;
       }
       
-      console.log('🔍 User ID çıkarıldı:', { merchant_oid, extractedUserId: userId, remainingLength: remaining.length });
     }
     
-    // Hala userId bulunamadıysa, webhook'u işle ama log'la
+    // Hala userId bulunamadıysa, webhook'u işle
     if (!userId) {
-      console.error('❌ iFrame Webhook: Could not extract userId from merchant_oid:', merchant_oid);
-      // Webhook'u başarılı olarak işaretle ama işleme devam et
       return NextResponse.json({ status: 'OK', warning: 'User ID not found' });
     }
 
     if (status === 'success') {
-      console.log('✅ Başarılı ödeme tespit edildi, subscription aktif ediliyor...');
-      
       // Premium abonelik oluştur
       try {
         // Plan ID'sini merchant_oid'den çıkar (format: order{userId}{timestamp}{random})
         const planId = 'premium'; // varsayılan
-        
-        console.log('🎯 Subscription aktivasyonu başlatılıyor:', {
-          userId,
-          planId,
-          amount: total_amount / 100,
-          currency: 'TRY',
-          paymentId: merchant_oid
-        });
         
         // Subscription'ı aktif et
         await subscriptionService.activateSubscription(userId, planId, {
@@ -148,40 +113,12 @@ export async function POST(request: NextRequest) {
           currency: 'TRY'
         });
         
-        console.log('🎉 iFrame Webhook: Subscription başarıyla aktif edildi!', {
-          userId,
-          planId,
-          subscriptionId: `sub_${userId}_${Date.now()}`,
-          amount: total_amount / 100,
-          currency: 'TRY'
-        });
-        
       } catch (subscriptionError) {
-        console.error('❌ iFrame Webhook: Subscription activation error:', subscriptionError);
         // Hata olsa bile webhook'u başarılı olarak işaretle (ödeme başarılı)
-        // Ama hatayı log'la ki daha sonra manuel olarak düzeltilebilsin
       }
       
-    } else {
-      // Başarısız ödeme log'u
-      console.log('❌ Başarısız ödeme tespit edildi:', {
-        userId,
-        merchant_oid,
-        status,
-        total_amount
-      });
-      
-      // Hata detayları log'la
-      if (webhookData.failed_reason_code && webhookData.failed_reason_msg) {
-        console.log('📋 Ödeme hatası detayları:', {
-          code: webhookData.failed_reason_code,
-          message: webhookData.failed_reason_msg
-        });
-      }
     }
 
-    console.log('✅ Webhook başarıyla işlendi, PayTR\'a OK yanıtı gönderiliyor');
-    
     // PayTR'ye başarılı yanıt gönder (sadece "OK" text olarak)
     return new NextResponse('OK', {
       status: 200,
@@ -194,8 +131,6 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ iFrame Webhook processing error:', error);
-    
     // PayTR'ye hata durumunda da text yanıt ver
     return new NextResponse('ERROR', {
       status: 500,
