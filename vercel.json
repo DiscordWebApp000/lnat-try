@@ -4,7 +4,7 @@
     "src/app/api/payment/create/route.ts": {
       "maxDuration": 30
     },
-    "src/app/api/paytr-webhook/route.ts": {
+    "src/app/api/paytr-iframe-webhook/route.ts": {
       "maxDuration": 30
     }
   },
@@ -31,7 +31,7 @@
       ]
     },
     {
-      "source": "/api/paytr-webhook",
+      "source": "/api/paytr-iframe-webhook",
       "headers": [
         {
           "key": "X-Frame-Options",

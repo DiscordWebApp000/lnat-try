@@ -54,6 +54,9 @@ function validateIframeWebhookData(data: any): { isValid: boolean; error?: strin
 export async function POST(request: NextRequest) {
   try {
     console.log('🔄 iFrame Webhook başlatıldı');
+    console.log('📡 Request headers:', Object.fromEntries(request.headers.entries()));
+    console.log('🌐 Request URL:', request.url);
+    console.log('🔧 Request method:', request.method);
     
     // Request body'yi parse et
     const webhookData = await request.json();
