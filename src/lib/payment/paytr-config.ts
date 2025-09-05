@@ -16,7 +16,7 @@ export const PAYTR_CONFIG = {
     PAYTR_CALLBACK_URL: process.env.PAYTR_CALLBACK_URL,
     API_URL: process.env.PAYTR_API_URL || 'https://www.paytr.com/odeme/api',
     TEST_MODE: process.env.PAYTR_TEST_MODE === 'true',
-    APP_URL: process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL,
+    APP_URL: process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://lnatt.vercel.app',
     // iFrame için yeni alanlar
     GET_TOKEN_URL: process.env.PAYTR_GET_TOKEN_URL || 'https://www.paytr.com/odeme/api/get-token',
     TIMEOUT_LIMIT: parseInt(process.env.PAYTR_TIMEOUT_LIMIT || '30'),
@@ -46,13 +46,13 @@ export function validatePayTRConfig() {
     console.warn('⚠️ PAYTR_CALLBACK_URL not set, using default');
   }
   
-  if (!process.env.APP_URL) {
-    console.warn('⚠️ APP_URL not set, using localhost:3000');
+  if (!process.env.APP_URL && !process.env.NEXT_PUBLIC_APP_URL) {
+    console.warn('⚠️ APP_URL not set, using https://lnatt.vercel.app');
   }
   
   console.log('✅ PayTR iFrame configuration validated successfully');
   console.log('🔗 Callback URL:', process.env.PAYTR_CALLBACK_URL || 'default');
-  console.log('🌐 App URL:', process.env.APP_URL || 'localhost:3000');
+  console.log('🌐 App URL:', process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://lnatt.vercel.app');
   console.log('🔧 Environment:', process.env.NODE_ENV);
   console.log('🎯 Payment Method: iFrame (Token-based)');
   console.log('🚫 Link API: Removed (Deprecated)');
