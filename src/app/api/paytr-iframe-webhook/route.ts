@@ -141,8 +141,23 @@ export async function POST(request: NextRequest) {
       
       // Premium abonelik oluştur
       try {
-        // Plan ID'sini Firebase'den al (varsayılan plan)
-        const planId = 'hB44i1d7FwjtSECViZH7'; // Firebase'deki premium plan ID'si
+        // Plan ID'sini Firebase'den dinamik olarak al (varsayılan plan)
+        let planId = 'hB44i1d7FwjtSECViZH7'; // fallback plan ID
+        
+        try {
+          // Aktif planları çek
+          const plansResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://lnatt.vercel.app'}/api/subscription/plans`);
+          const plansData = await plansResponse.json();
+          
+          if (plansData.success && plansData.plans && plansData.plans.length > 0) {
+            // Varsayılan planı bul veya ilk planı kullan
+            const defaultPlan = plansData.plans.find((plan: any) => plan.isDefault) || plansData.plans[0];
+            planId = defaultPlan.id;
+            console.log('📋 Dinamik plan seçildi:', { planId, planName: defaultPlan.name });
+          }
+        } catch (planError) {
+          console.log('⚠️ Plan çekme hatası, fallback plan kullanılıyor:', planError);
+        }
         
         console.log('🎯 Subscription aktivasyonu başlatılıyor:', {
           userId,
