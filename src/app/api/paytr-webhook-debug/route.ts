@@ -9,23 +9,10 @@ export async function POST(request: NextRequest) {
     console.log('🌐 URL:', request.url);
     console.log('📋 Headers:', Object.fromEntries(request.headers.entries()));
     
-    // Body'yi al
-    let body;
-    try {
-      const textBody = await request.text();
-      console.log('📄 Text Body:', textBody);
-      
-      // JSON parse etmeye çalış
-      try {
-        body = JSON.parse(textBody);
-        console.log('📥 JSON Body:', body);
-      } catch {
-        body = { raw: textBody };
-      }
-    } catch (error) {
-      console.log('❌ Body read error:', error);
-      body = { error: 'Body read failed' };
-    }
+    // URL search params'ı al
+    const url = new URL(request.url);
+    const searchParams = url.searchParams;
+    console.log('📄 Search Params:', Object.fromEntries(searchParams.entries()));
     
     // PayTR webhook yanıtı (PayTR'nin beklediği format)
     return NextResponse.json({
