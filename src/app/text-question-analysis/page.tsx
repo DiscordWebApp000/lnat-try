@@ -5,7 +5,7 @@ import { Question, EvaluationResult, geminiAI } from '@/lib/gemini-ai';
 import QuestionDisplay from '@/components/ui/QuestionDisplay';
 import EvaluationResults from '@/components/ui/EvaluationResults';
 import TextQuestionsInput from '@/components/forms/TextQuestionsInput';
-import { Brain, AlertCircle, RefreshCw, Flag, CheckCircle, XCircle, List, Lock, Shield } from 'lucide-react';
+import { Brain, AlertCircle, RefreshCw, Flag, CheckCircle, XCircle, List, Lock } from 'lucide-react';
 import { PulseLoader, RingLoader } from 'react-spinners';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,7 +26,7 @@ export default function MetinSoruAnalizi() {
 }
 
 function MetinSoruAnaliziContent() {
-  const { currentUser, loading, hasPermission, permissionsLoading } = useAuth();
+  const { currentUser, loading } = useAuth();
   const dispatch = useAppDispatch();
   
   const [appState, setAppState] = useState<AppState>('input');
@@ -82,7 +82,7 @@ function MetinSoruAnaliziContent() {
   }, []);
 
   // Yetki kontrolü - loading veya yetki yoksa erken return
-  if (loading || permissionsLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
@@ -108,20 +108,6 @@ function MetinSoruAnaliziContent() {
     );
   }
 
-  if (!hasPermission('text-question-analysis')) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <Shield className="w-16 h-16 text-orange-600 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Permission Required</h1>
-          <p className="text-gray-600 mb-4">You need to be granted permission to use this tool.</p>
-          <Link href="/dashboard" className="text-blue-600 hover:text-blue-700 font-medium">
-            Back to Dashboard
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   const handleAnalyzeContent = async (combinedText: string) => {
     setIsLoading(true);

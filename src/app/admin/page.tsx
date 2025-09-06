@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchAllPermissions } from '@/store/slices/permissionsSlice';
 import { fetchAllUsers } from '@/store/slices/authSlice';
+import { permissionManager } from '@/lib/permission-manager';
 import Navbar from '@/components/ui/Navbar';
 import { User, Permission } from '@/types/user';
 import { 
@@ -21,6 +22,7 @@ import {
   Calendar,
   Edit,
   AlertCircle,
+  Shield,
 } from 'lucide-react';
 import UserPermissionModal from '@/components/forms/UserPermissionModal';
 import AdminSupportPanel from '@/components/admin/AdminSupportPanel';
@@ -30,7 +32,7 @@ import AdminSidebar from '@/components/admin/AdminSidebar';
 export default function AdminPage() {
   const { currentUser, loading } = useAuth();
   const dispatch = useAppDispatch();
-  const { users, loading: loadingUsers } = useAppSelector((state: any) => state.auth);
+  const { loading: loadingUsers } = useAppSelector((state: any) => state.auth);
   const { permissions } = useAppSelector((state: any) => state.permissions);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<'all' | 'user' | 'admin'>('all');
@@ -38,22 +40,54 @@ export default function AdminPage() {
   const [filterLastLogin, setFilterLastLogin] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
   const [customDays, setCustomDays] = useState<number>(7);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUserPermissions, setSelectedUserPermissions] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'users' | 'support' | 'subscription'>('users');
   const [grantingTrials, setGrantingTrials] = useState<Set<string>>(new Set());
+  const [userPermissionsMap, setUserPermissionsMap] = useState<{[userId: string]: string[]}>({});
+  const [isCheckingPermissions, setIsCheckingPermissions] = useState(false);
+  const [permissionCheckProgress, setPermissionCheckProgress] = useState(0);
+  const [permissionCheckStep, setPermissionCheckStep] = useState('');
   const router = useRouter();
+  
+  // Get users from Redux state
+  const users = useAppSelector((state) => state.auth.users);
 
-  const loadAdminData = useCallback(async () => {
+  const loadAdminData = useCallback(async (users: User[]) => {
     try {
-      // Use Redux actions instead of direct service calls
-      await Promise.all([
-        dispatch(fetchAllUsers()),
-        dispatch(fetchAllPermissions())
-      ]);
+      console.log('🔍 Loading admin data from cached permission status...');
+      console.log('🔍 Users loaded:', users.length);
+      
+      // Use cached permission status from database instead of real-time calculation
+      const formattedPermissionsMap: {[userId: string]: string[]} = {};
+      
+      for (const user of users) {
+        // Admin kullanıcıları için özel durum
+        if (user.role === 'admin') {
+          formattedPermissionsMap[user.uid] = ['all'];
+          console.log(`🔍 Admin user ${user.email}: all permissions`);
+        } else if (user.permissionStatus) {
+          formattedPermissionsMap[user.uid] = user.permissionStatus.permissions;
+          console.log(`🔍 User ${user.email} (cached):`, {
+            permissions: user.permissionStatus.permissions,
+            source: user.permissionStatus.source,
+            trialActive: user.permissionStatus.trialActive,
+            subscriptionActive: user.permissionStatus.subscriptionActive,
+            lastChecked: user.permissionStatus.lastChecked
+          });
+        } else {
+          // Fallback: no cached data, show empty permissions
+          formattedPermissionsMap[user.uid] = [];
+          console.log(`🔍 User ${user.email}: No cached permission data`);
+        }
+      }
+      
+      setUserPermissionsMap(formattedPermissionsMap);
+      console.log('✅ Admin data loaded from cache successfully');
     } catch (error) {
       console.error('Error loading admin data:', error);
     }
-  }, [dispatch]);
+  }, []);
 
   const getTrialStatus = (user: User) => {
     if (!user.trialEndsAt) {
@@ -143,22 +177,68 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (currentUser && currentUser.role === 'admin') {
-      loadAdminData();
+      // First load users and permissions
+      Promise.all([
+        dispatch(fetchAllUsers()),
+        dispatch(fetchAllPermissions())
+      ]);
     }
-  }, [currentUser, loadAdminData]);
+  }, [currentUser, dispatch]);
 
-  const handleUserClick = (user: User) => {
-    setSelectedUser(user);
-    setIsModalOpen(true);
-  };
+  // Load admin data when users are available
+  useEffect(() => {
+    if (currentUser && currentUser.role === 'admin' && users.length > 0) {
+      loadAdminData(users);
+    }
+  }, [currentUser, users, loadAdminData]);
+
 
   const handleModalClose = () => {
     setIsModalOpen(false);
     setSelectedUser(null);
+    setSelectedUserPermissions([]);
+  };
+
+  const handleUserSelect = async (user: User) => {
+    setSelectedUser(user);
+    setIsModalOpen(true);
+    
+    // Load user's active permissions using centralized permission manager
+    try {
+      console.log('🔍 Loading permissions for selected user:', user.email);
+      const permissionInfo = await permissionManager.getUserPermissionInfo(user);
+      console.log('🔍 Permission info for selected user:', permissionInfo);
+      
+      setSelectedUserPermissions(permissionInfo.permissions);
+    } catch (error) {
+      console.error('Error loading user permissions:', error);
+      setSelectedUserPermissions([]);
+    }
   };
 
   const handlePermissionsUpdate = async () => {
-    await loadAdminData();
+    // Reload users and permissions first
+    await Promise.all([
+      dispatch(fetchAllUsers()),
+      dispatch(fetchAllPermissions())
+    ]);
+    
+    // Then load admin data with the users
+    await loadAdminData(users);
+    
+    // Also refresh the selected user's permissions
+    if (selectedUser) {
+      try {
+        const permissionInfo = await permissionManager.getUserPermissionInfo(selectedUser);
+        setSelectedUserPermissions(permissionInfo.permissions);
+        setUserPermissionsMap(prev => ({
+          ...prev,
+          [selectedUser.uid]: permissionInfo.permissions
+        }));
+      } catch (error) {
+        console.error('Error refreshing selected user permissions:', error);
+      }
+    }
   };
 
 
@@ -189,7 +269,7 @@ export default function AdminPage() {
           matchesTrial = trialStatus.status === 'expiring';
           break;
         case 'premium':
-          // Premium abone (subscription status active)
+          // Premium abone (subscription status active) - trial'ı yok say
           matchesTrial = user.subscription?.status === 'active';
           break;
         case 'no-trial':
@@ -374,12 +454,18 @@ export default function AdminPage() {
                 <p className="text-gray-600 text-xs sm:text-sm font-medium">Trial Users</p>
                 <p className="text-xl sm:text-2xl font-bold text-gray-900">
                   {users.filter((u: User) => {
+                    // Only count trial users who don't have active subscription
+                    if (u.subscription?.status === 'active') return false;
                     const trialStatus = getTrialStatus(u);
                     return trialStatus.status === 'active' || trialStatus.status === 'long-active';
                   }).length}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {users.filter((u: User) => getTrialStatus(u).status === 'expired').length} expired
+                  {users.filter((u: User) => {
+                    // Only count expired trial users who don't have active subscription
+                    if (u.subscription?.status === 'active') return false;
+                    return getTrialStatus(u).status === 'expired';
+                  }).length} expired
                 </p>
               </div>
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -491,9 +577,125 @@ export default function AdminPage() {
         {/* Users List */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
-            <h2 className="text-base sm:text-lg font-semibold text-gray-900">
-              User List ({filteredUsers.length})
-            </h2>
+            <div className="flex justify-between items-center">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900">
+                User List ({filteredUsers.length})
+              </h2>
+              <button
+                onClick={async () => {
+                  if (isCheckingPermissions) return;
+                  
+                  try {
+                    setIsCheckingPermissions(true);
+                    setPermissionCheckProgress(0);
+                    setPermissionCheckStep('Starting permission check...');
+                    
+                    console.log('🔍 Starting comprehensive permission check...');
+                    
+                    // 1. Check and clean expired permissions
+                    setPermissionCheckStep('Checking expired permissions...');
+                    setPermissionCheckProgress(25);
+                    
+                    const response = await fetch('/api/admin/check-expired-permissions', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' }
+                    });
+                    
+                    if (response.ok) {
+                      console.log('✅ Expired permissions checked and cleaned');
+                      setPermissionCheckStep('Expired permissions cleaned');
+                      setPermissionCheckProgress(50);
+                      
+                      // 2. Save permission status to database for caching
+                      setPermissionCheckStep('Saving permission status to database...');
+                      setPermissionCheckProgress(75);
+                      
+                      const saveResponse = await fetch('/api/admin/save-permission-status', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                      });
+                      
+                      if (saveResponse.ok) {
+                        console.log('✅ Permission status saved to database');
+                        setPermissionCheckStep('Permission status saved');
+                        setPermissionCheckProgress(90);
+                        
+                        // 3. Reload users with updated permission status
+                        setPermissionCheckStep('Reloading user data...');
+                        setPermissionCheckProgress(95);
+                        
+                        await Promise.all([
+                          dispatch(fetchAllUsers()),
+                          dispatch(fetchAllPermissions())
+                        ]);
+                        
+                        // 4. Load admin data with cached permissions
+                        setPermissionCheckStep('Loading admin data...');
+                        setPermissionCheckProgress(100);
+                        
+                        await loadAdminData(users);
+                        
+                        setPermissionCheckStep('✅ Permission check completed successfully!');
+                        
+                        // Reset after 2 seconds
+                        setTimeout(() => {
+                          setIsCheckingPermissions(false);
+                          setPermissionCheckProgress(0);
+                          setPermissionCheckStep('');
+                        }, 2000);
+                      } else {
+                        setPermissionCheckStep('❌ Failed to save permission status');
+                        alert('❌ Failed to save permission status to database');
+                        setIsCheckingPermissions(false);
+                      }
+                    } else {
+                      setPermissionCheckStep('❌ Failed to check expired permissions');
+                      alert('❌ Failed to check expired permissions');
+                      setIsCheckingPermissions(false);
+                    }
+                  } catch (error) {
+                    console.error('Error checking expired permissions:', error);
+                    setPermissionCheckStep('❌ Error occurred');
+                    alert('❌ Error checking expired permissions');
+                    setIsCheckingPermissions(false);
+                  }
+                }}
+                disabled={isCheckingPermissions}
+                className={`px-3 py-1.5 rounded-lg flex items-center gap-2 text-sm transition-all ${
+                  isCheckingPermissions 
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                    : 'bg-red-600 text-white hover:bg-red-700 cursor-pointer'
+                }`}
+              >
+                {isCheckingPermissions ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span className="text-xs">{permissionCheckStep}</span>
+                  </>
+                ) : (
+                  <>
+                    <Shield className="w-4 h-4" />
+                    Check & Cache Permissions
+                  </>
+                )}
+              </button>
+            </div>
+            
+            {/* Progress Bar */}
+            {isCheckingPermissions && (
+              <div className="mt-3 px-4 sm:px-6">
+                <div className="bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-red-600 h-2 rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${permissionCheckProgress}%` }}
+                  ></div>
+                </div>
+                <div className="flex justify-between items-center mt-2">
+                  <span className="text-xs text-gray-600">{permissionCheckStep}</span>
+                  <span className="text-xs text-gray-500">{permissionCheckProgress}%</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {loadingUsers ? (
@@ -516,7 +718,7 @@ export default function AdminPage() {
                       ? 'border-l-4 border-purple-500 bg-gradient-to-r from-purple-50 to-white shadow-md' 
                       : 'border-l-4 border-transparent'
                   }`}
-                  onClick={() => handleUserClick(user)}
+                  onClick={() => handleUserSelect(user)}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3 sm:gap-4">
@@ -551,7 +753,7 @@ export default function AdminPage() {
                             {user.subscription?.status === 'active' && (
                               <div className="flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
                                 <Crown className="w-3 h-3" />
-                                <span>Premium</span>
+                                <span>{user.subscription.planName === 'premium' ? 'Premium' : user.subscription.planName === 'basic' ? 'Basic' : user.subscription.planName === 'enterprise' ? 'Enterprise' : 'Premium'}</span>
                               </div>
                             )}
                           </div>
@@ -572,8 +774,8 @@ export default function AdminPage() {
                           </div>
                         </div>
 
-                        {/* Trial Period Information */}
-                        {user.trialEndsAt && (
+                        {/* Trial Period Information - Only show if no active subscription */}
+                        {user.trialEndsAt && user.subscription?.status !== 'active' && (
                           <div className="mb-3">
                             <div className="flex items-center gap-2 mb-2">
                               <Clock className="w-4 h-4 text-blue-500" />
@@ -597,8 +799,8 @@ export default function AdminPage() {
                           </div>
                         )}
 
-                        {/* Trial Expiry Warning */}
-                        {user.trialEndsAt && (() => {
+                        {/* Trial Expiry Warning - Only show if trial is active and expiring soon, and no active subscription */}
+                        {user.trialEndsAt && user.subscription?.status !== 'active' && (() => {
                           const now = new Date();
                           let trialEnd: Date;
                           
@@ -620,6 +822,7 @@ export default function AdminPage() {
                           const diffTime = trialEnd.getTime() - now.getTime();
                           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                           
+                          // Only show warning if trial is active and expiring soon (not expired)
                           if (diffDays <= 3 && diffDays >= 0) {
                             return (
                               <div className="mb-3 p-2 bg-orange-50 border border-orange-200 rounded-lg">
@@ -631,17 +834,6 @@ export default function AdminPage() {
                                 </div>
                               </div>
                             );
-                          } else if (diffDays < 0) {
-                            return (
-                              <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg">
-                                <div className="flex items-center gap-2">
-                                  <XCircle className="w-4 h-4 text-red-500" />
-                                  <span className="text-xs text-red-700 font-medium">
-                                    Trial expired! ({Math.abs(diffDays)} days ago)
-                                  </span>
-                                </div>
-                              </div>
-                            );
                           }
                           return null;
                         })()}
@@ -649,36 +841,48 @@ export default function AdminPage() {
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                             <span className="text-xs sm:text-sm font-medium text-gray-700">
-                              Permissions: {user.permissions.length}
+                              Permissions: {user.role === 'admin' ? 'All' : (userPermissionsMap[user.uid]?.length || 0)}
                             </span>
                             <div className="flex flex-wrap gap-1">
-                              {user.permissions.slice(0, 3).map((permissionId: string) => {
-                                const permission = permissions.find((p: Permission) => p.id === permissionId);
-                                return (
-                                  <span
-                                    key={permissionId}
-                                    className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs"
-                                  >
-                                    {permission?.name || permissionId}
-                                  </span>
-                                );
-                              })}
-                              {user.permissions.length > 3 && (
-                                <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
-                                  +{user.permissions.length - 3}
+                              {user.role === 'admin' ? (
+                                <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium">
+                                  All Tools
                                 </span>
-                              )}
-                              {user.permissions.length === 0 && (
-                                <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs">
-                                  No permissions
-                                </span>
+                              ) : (
+                                <>
+                                  {(userPermissionsMap[user.uid] || []).slice(0, 3).map((permissionId: string) => {
+                                    const permission = permissions.find((p: Permission) => p.id === permissionId);
+                                    // If it's a tool name (trial/subscription permission), display it directly
+                                    const displayName = permission?.name || permissionId;
+                                    return (
+                                      <span
+                                        key={permissionId}
+                                        className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs"
+                                      >
+                                        {displayName}
+                                      </span>
+                                    );
+                                  })}
+                                  {(userPermissionsMap[user.uid] || []).length > 3 && (
+                                    <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
+                                      +{(userPermissionsMap[user.uid] || []).length - 3}
+                                    </span>
+                                  )}
+                                  {(userPermissionsMap[user.uid] || []).length === 0 && (
+                                    <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs">
+                                      No permissions
+                                    </span>
+                                  )}
+                                </>
                               )}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Edit className="w-4 h-4 text-gray-500" />
                             <span className="text-xs sm:text-sm text-gray-500">Edit</span>
-                            <button
+                            {/* Grant Trial Button - Only show if no active subscription */}
+                            {user.subscription?.status !== 'active' && (
+                              <button
                               onClick={async (e) => {
                                 e.stopPropagation();
                                 
@@ -717,7 +921,13 @@ export default function AdminPage() {
                                     });
                                     
                                     alert(`✅ ${user.firstName} ${user.lastName} kullanıcısına 1 haftalık trial süresi verildi!\n\n📅 Yeni bitiş tarihi: ${formattedDate}\n⏰ Eklenen süre: ${result.data.daysAdded} gün`);
-                                    await loadAdminData();
+                                    // Reload users and permissions first
+                                    await Promise.all([
+                                      dispatch(fetchAllUsers()),
+                                      dispatch(fetchAllPermissions())
+                                    ]);
+                                    // Then load admin data with the users
+                                    await loadAdminData(users);
                                   } else {
                                     alert('❌ Hata: ' + result.error);
                                   }
@@ -765,6 +975,7 @@ export default function AdminPage() {
                                 </>
                               )}
                             </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -797,6 +1008,7 @@ export default function AdminPage() {
         <UserPermissionModal
           user={selectedUser}
           permissions={permissions}
+          userPermissions={selectedUserPermissions}
           isOpen={isModalOpen}
           onClose={handleModalClose}
           onUpdate={handlePermissionsUpdate}

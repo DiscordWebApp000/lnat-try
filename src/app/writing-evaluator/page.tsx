@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { openaiAI } from '@/lib/gpt-ai';
-import { Brain, AlertCircle, RefreshCw, PenTool, CheckCircle, XCircle, Lightbulb, Lock, Shield } from 'lucide-react';
+import { Brain, AlertCircle, RefreshCw, PenTool, CheckCircle, XCircle, Lightbulb, Lock } from 'lucide-react';
 import { PulseLoader, RingLoader } from 'react-spinners';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -39,7 +39,7 @@ export default function WritingEvaluator() {
 }
 
 function WritingEvaluatorContent() {
-  const { currentUser, loading, hasPermission, permissionsLoading } = useAuth();
+  const { currentUser, loading } = useAuth();
   const dispatch = useAppDispatch();
   
   const [appState, setAppState] = useState<AppState>('input');
@@ -53,7 +53,7 @@ function WritingEvaluatorContent() {
 
 
   // Yetki kontrolü - loading veya yetki yoksa erken return
-  if (loading || permissionsLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 flex items-center justify-center">
         <div className="text-center">
@@ -79,20 +79,6 @@ function WritingEvaluatorContent() {
     );
   }
 
-  if (!hasPermission('writing-evaluator')) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 flex items-center justify-center">
-        <div className="text-center">
-          <Shield className="w-16 h-16 text-orange-600 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Permission Required</h1>
-          <p className="text-gray-600 mb-4">You need to be granted permission to use this tool.</p>
-          <Link href="/dashboard" className="text-purple-600 hover:text-purple-700 font-medium">
-            Back to Dashboard
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   const handleEvaluate = async (question: string, userText: string) => {
     setIsLoading(true);

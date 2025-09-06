@@ -1,10 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
+import {  useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAppSelector } from '@/store/hooks';
 import Link from 'next/link';
-import { Lock, Crown, Clock } from 'lucide-react';
+import { Lock, Crown } from 'lucide-react';
 
 interface ToolAccessGuardProps {
   children: React.ReactNode;
@@ -17,90 +16,66 @@ export const ToolAccessGuard: React.FC<ToolAccessGuardProps> = ({
   toolName, 
   fallback 
 }) => {
-  const { currentUser } = useAuth();
-  const { subscription } = useAppSelector((state: any) => state.subscription);
+  const { currentUser, hasPermission } = useAuth();
   
-  const canAccess = useMemo(() => {
-    console.log('🔍 ToolAccessGuard - Checking access for tool:', toolName);
-    console.log('🔍 Current user:', currentUser);
-    console.log('🔍 Subscription:', subscription);
-    
-    if (!currentUser) {
-      console.log('🔍 No current user, access denied');
-      return false;
-    }
-    
-    // Premium subscription varsa erişim ver
-    if (subscription?.status === 'premium') {
-      console.log('🔍 Premium subscription found, access granted');
-      return true;
-    }
-    
-    // Trial subscription varsa kontrol et
-    if (subscription?.status === 'trial' && subscription.trialEndsAt) {
-      const now = new Date();
-      const trialEnd = subscription.trialEndsAt;
-      const isTrialActive = now < trialEnd;
-      console.log('🔍 Trial subscription found, trialEndsAt:', trialEnd, 'isActive:', isTrialActive);
-      return isTrialActive;
-    }
-    
-    // Subscription yoksa user document'dan trial süresini kontrol et
-    if (currentUser.trialEndsAt) {
-      const now = new Date();
-      const trialEnd = currentUser.trialEndsAt;
-      const isTrialActive = now < trialEnd;
-      console.log('🔍 User trial found, trialEndsAt:', trialEnd, 'isActive:', isTrialActive);
-      return isTrialActive;
-    }
-    
-    console.log('🔍 No active subscription or trial found, access denied');
-    return false;
-  }, [currentUser, subscription, toolName]);
+  const [canAccess, setCanAccess] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const getTrialDaysLeft = () => {
-    if (!subscription?.trialEndsAt) return 0;
-    
-    const now = new Date();
-    const trialEnd = subscription.trialEndsAt;
-    const diffTime = trialEnd.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    return Math.max(0, diffDays);
-  };
+  useEffect(() => {
+    const checkPermission = async () => {
+      console.log('🔍 ToolAccessGuard - Checking access for tool:', toolName);
+      console.log('🔍 Current user:', currentUser);
+      
+      if (!currentUser) {
+        console.log('🔍 No current user, access denied');
+        setCanAccess(false);
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        // Use AuthContext's hasPermission function which handles all permission logic
+        const hasAccess = await hasPermission(toolName);
+        console.log('🔍 Has permission for', toolName, ':', hasAccess);
+        setCanAccess(hasAccess);
+      } catch (error) {
+        console.error('Error checking permission:', error);
+        setCanAccess(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkPermission();
+  }, [currentUser, hasPermission, toolName]);
+
   
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="max-w-md mx-auto text-center p-8">
+          <div className="w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Checking permissions...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!canAccess) {
     return fallback || (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="max-w-md mx-auto text-center p-8">
           <div className="mb-6">
-            {subscription?.status === 'trial' ? (
-              <Clock className="mx-auto h-16 w-16 text-orange-500 mb-4" />
-            ) : (
-              <Lock className="mx-auto h-16 w-16 text-red-500 mb-4" />
-            )}
+            <Lock className="mx-auto h-16 w-16 text-red-500 mb-4" />
           </div>
           
           <h3 className="text-2xl font-bold text-gray-900 mb-4">
-            {subscription?.status === 'trial' ? 'Trial Süresi Doldu' : 'Tool Erişimi Gerekli'}
+            Tool Erişimi Gerekli
           </h3>
           
-          {subscription?.status === 'trial' ? (
-            <div className="mb-6">
-              <p className="text-gray-600 mb-2">
-                Trial süreniz sona erdi. Bu tool&apos;u kullanmaya devam etmek için premium aboneliğe geçmeniz gerekiyor.
-              </p>
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                <p className="text-sm text-orange-800">
-                  Trial süresi: {getTrialDaysLeft()} gün kaldı
-                </p>
-              </div>
-            </div>
-          ) : (
-            <p className="text-gray-600 mb-6">
-              Bu tool&apos;u kullanmak için premium aboneliğe geçmeniz gerekiyor.
-            </p>
-          )}
+          <p className="text-gray-600 mb-6">
+            Bu tool&apos;u kullanmak için premium aboneliğe geçmeniz gerekiyor.
+          </p>
           
           <div className="space-y-3">
             <Link 

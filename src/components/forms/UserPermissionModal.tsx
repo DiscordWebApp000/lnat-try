@@ -21,6 +21,7 @@ import {
 interface UserPermissionModalProps {
   user: User;
   permissions: Permission[];
+  userPermissions: string[]; // Active permissions from userPermissions collection
   isOpen: boolean;
   onClose: () => void;
   onUpdate: () => void;
@@ -30,14 +31,16 @@ interface UserPermissionModalProps {
 export default function UserPermissionModal({
   user,
   permissions,
+  userPermissions,
   isOpen,
   onClose,
   onUpdate,
   currentAdminUid
 }: UserPermissionModalProps) {
-  const [localPermissions, setLocalPermissions] = useState<string[]>(user.permissions);
+  const [localPermissions, setLocalPermissions] = useState<string[]>(userPermissions);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>('');
+  const [permissionExpirations, setPermissionExpirations] = useState<{[key: string]: string}>({});
 
   if (!isOpen) return null;
 
@@ -62,7 +65,7 @@ export default function UserPermissionModal({
   };
 
   const hasChanges = () => {
-    const currentSet = new Set(user.permissions);
+    const currentSet = new Set(userPermissions);
     const localSet = new Set(localPermissions);
     
     return currentSet.size !== localSet.size || 
@@ -75,7 +78,7 @@ export default function UserPermissionModal({
 
     try {
       // Eski yetkileri kaldır
-      for (const permission of user.permissions) {
+      for (const permission of userPermissions) {
         if (!localPermissions.includes(permission)) {
           await permissionService.revokePermission(user.uid, permission);
         }
@@ -83,8 +86,20 @@ export default function UserPermissionModal({
 
       // Yeni yetkileri ekle
       for (const permission of localPermissions) {
-        if (!user.permissions.includes(permission)) {
-          await permissionService.grantPermission(user.uid, permission, currentAdminUid);
+        if (!userPermissions.includes(permission)) {
+          const expirationDate = permissionExpirations[permission];
+          if (expirationDate) {
+            // Expiration date ile yetki ver
+            await permissionService.grantTemporaryPermission(
+              user.uid, 
+              permission, 
+              currentAdminUid, 
+              new Date(expirationDate)
+            );
+          } else {
+            // Kalıcı yetki ver
+            await permissionService.grantPermission(user.uid, permission, currentAdminUid);
+          }
         }
       }
 
@@ -453,41 +468,69 @@ export default function UserPermissionModal({
                   return (
                     <div
                       key={permission.id}
-                      onClick={() => togglePermission(permission.id)}
-                      className={`p-3 sm:p-4 border-2 rounded-xl cursor-pointer transition-all ${
+                      className={`p-3 sm:p-4 border-2 rounded-xl transition-all ${
                         isSelected
                           ? 'border-green-500 bg-green-50 shadow-md'
                           : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center ${
-                            isSelected ? 'bg-green-500' : 'bg-gray-200'
-                          }`}>
-                            {isSelected ? (
-                              <CheckCircle className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
-                            ) : (
-                              <XCircle className="w-3 h-3 sm:w-5 sm:h-5 text-gray-500" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className={`font-semibold text-sm sm:text-base ${
-                              isSelected ? 'text-green-900' : 'text-gray-900'
+                      <div 
+                        onClick={() => togglePermission(permission.id)}
+                        className="cursor-pointer"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 sm:gap-3">
+                            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center ${
+                              isSelected ? 'bg-green-500' : 'bg-gray-200'
                             }`}>
-                              {permission.name}
-                            </h4>
-                            <p className={`text-xs sm:text-sm ${
-                              isSelected ? 'text-green-700' : 'text-gray-600'
-                            }`}>
-                              {permission.description}
-                            </p>
+                              {isSelected ? (
+                                <CheckCircle className="w-3 h-3 sm:w-5 sm:h-5 text-white" />
+                              ) : (
+                                <XCircle className="w-3 h-3 sm:w-5 sm:h-5 text-gray-500" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className={`font-semibold text-sm sm:text-base ${
+                                isSelected ? 'text-green-900' : 'text-gray-900'
+                              }`}>
+                                {permission.name}
+                              </h4>
+                              <p className={`text-xs sm:text-sm ${
+                                isSelected ? 'text-green-700' : 'text-gray-600'
+                              }`}>
+                                {permission.description}
+                              </p>
+                            </div>
                           </div>
+                          <Key className={`w-4 h-4 sm:w-5 sm:h-5 ${
+                            isSelected ? 'text-green-600' : 'text-gray-400'
+                          }`} />
                         </div>
-                        <Key className={`w-4 h-4 sm:w-5 sm:h-5 ${
-                          isSelected ? 'text-green-600' : 'text-gray-400'
-                        }`} />
                       </div>
+                      
+                      {/* Expiration Date Input - Only show if permission is selected */}
+                      {isSelected && (
+                        <div className="mt-3 pt-3 border-t border-green-200">
+                          <label className="block text-xs font-medium text-green-700 mb-2">
+                            Expiration Date (Optional)
+                          </label>
+                          <input
+                            type="datetime-local"
+                            value={permissionExpirations[permission.id] || ''}
+                            onChange={(e) => {
+                              setPermissionExpirations(prev => ({
+                                ...prev,
+                                [permission.id]: e.target.value
+                              }));
+                            }}
+                            className="w-full px-3 py-2 text-xs border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                            placeholder="Leave empty for permanent permission"
+                          />
+                          <p className="text-xs text-green-600 mt-1">
+                            Leave empty for permanent permission, or set a specific date/time
+                          </p>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

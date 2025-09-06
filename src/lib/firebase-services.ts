@@ -216,6 +216,7 @@ export const userService = {
       // Firebase Timestamp'leri Date objesine çevir
       let createdAt: Date;
       let lastLoginAt: Date;
+      let lastSubscriptionDate: Date | undefined;
       
       if (userData.createdAt && typeof userData.createdAt.toDate === 'function') {
         // Firebase Timestamp objesi
@@ -241,6 +242,26 @@ export const userService = {
         lastLoginAt = new Date();
       }
       
+      // lastSubscriptionDate field'ını işle
+      if (userData.lastSubscriptionDate) {
+        if (typeof userData.lastSubscriptionDate.toDate === 'function') {
+          // Firebase Timestamp objesi
+          lastSubscriptionDate = userData.lastSubscriptionDate.toDate();
+        } else if (userData.lastSubscriptionDate instanceof Date) {
+          // Zaten Date objesi
+          lastSubscriptionDate = userData.lastSubscriptionDate;
+        } else {
+          // String veya number timestamp
+          lastSubscriptionDate = new Date(userData.lastSubscriptionDate);
+        }
+        
+        // Tarih validasyonu
+        if (lastSubscriptionDate && isNaN(lastSubscriptionDate.getTime())) {
+          console.warn(`Invalid lastSubscriptionDate for user ${userData.email}, setting to undefined`);
+          lastSubscriptionDate = undefined;
+        }
+      }
+      
       // Tarih validasyonu
       if (isNaN(createdAt.getTime())) {
         console.warn(`Invalid createdAt for user ${userData.email}, using current date`);
@@ -251,10 +272,31 @@ export const userService = {
         lastLoginAt = new Date();
       }
       
+      // permissionStatus field'ını işle
+      let permissionStatus = userData.permissionStatus;
+      if (permissionStatus && permissionStatus.lastChecked) {
+        if (typeof permissionStatus.lastChecked.toDate === 'function') {
+          permissionStatus = {
+            ...permissionStatus,
+            lastChecked: permissionStatus.lastChecked.toDate()
+          };
+        } else if (permissionStatus.lastChecked instanceof Date) {
+          // Zaten Date objesi, değişiklik yok
+        } else {
+          // String veya number timestamp
+          permissionStatus = {
+            ...permissionStatus,
+            lastChecked: new Date(permissionStatus.lastChecked)
+          };
+        }
+      }
+
       return {
         ...userData,
         createdAt,
-        lastLoginAt
+        lastLoginAt,
+        lastSubscriptionDate,
+        permissionStatus
       } as User;
     });
   },
@@ -463,73 +505,6 @@ export const permissionService = {
     }
   },
 
-  // Kullanıcının yetkilerini kontrol et
-  async checkUserPermission(userId: string, tool: string): Promise<boolean> {
-    const userDoc = await getDoc(doc(db, 'users', userId));
-    if (!userDoc.exists()) {
-      return false;
-    }
-    
-    const userData = userDoc.data() as User;
-    
-    // Admin tüm yetkilere sahip
-    if (userData.role === 'admin') {
-      return true;
-    }
-    
-          // Trial süresi kontrolü
-      if (userData.trialEndsAt) {
-        let trialEndsAt: Date;
-        const trialData = userData.trialEndsAt;
-        if (trialData instanceof Date) {
-          trialEndsAt = trialData;
-        } else if (trialData && typeof (trialData as any).toDate === 'function') {
-          trialEndsAt = (trialData as any).toDate();
-        } else {
-          trialEndsAt = new Date(trialData as any);
-        }
-        if (trialEndsAt > new Date()) {
-          return true; // Trial süresi aktif, tüm tool'lara erişim
-        }
-      }
-    
-    // Kullanıcının yetkilerini kontrol et
-    const permissionsQuery = query(
-      collection(db, 'userPermissions'),
-      where('userId', '==', userId),
-      where('isActive', '==', true)
-    );
-    const snapshot = await getDocs(permissionsQuery);
-    
-    for (const permissionDoc of snapshot.docs) {
-      const permissionData = permissionDoc.data() as UserPermission;
-      
-      // ExpiresAt kontrolü
-      if (permissionData.expiresAt) {
-        let expiresAt: Date;
-        const expData = permissionData.expiresAt;
-        if (expData && typeof (expData as any).toDate === 'function') {
-          expiresAt = (expData as any).toDate();
-        } else {
-          expiresAt = expData as Date;
-        }
-        if (expiresAt < new Date()) {
-          continue; // Süresi dolmuş permission'ı atla
-        }
-      }
-      
-      const permission = await getDoc(doc(db, 'permissions', permissionData.permissionId));
-      
-      if (permission.exists()) {
-        const permissionInfo = permission.data() as Permission;
-        if (permissionInfo.tool === tool || permissionInfo.tool === 'all') {
-          return true;
-        }
-      }
-    }
-    
-    return false;
-  },
 
   // Yeni yetki oluştur
   async createPermission(permission: Omit<Permission, 'id'>): Promise<string> {
@@ -551,7 +526,9 @@ export const permissionService = {
 
   // Temporarily grant permission for a specific duration
   async grantTemporaryPermission(userId: string, permissionId: string, grantedBy: string, expiresAt: Date): Promise<void> {
-          const userPermission: Omit<UserPermission, 'expiresAt'> & { expiresAt: Timestamp } = {
+    try {
+      console.log('🔍 Granting temporary permission:', permissionId, 'to user:', userId, 'expires at:', expiresAt);
+      const userPermission: Omit<UserPermission, 'expiresAt'> & { expiresAt: Timestamp } = {
         userId,
         permissionId,
         grantedBy,
@@ -559,30 +536,94 @@ export const permissionService = {
         isActive: true,
         expiresAt: Timestamp.fromDate(expiresAt)
       };
-    await addDoc(collection(db, 'userPermissions'), userPermission);
+      await addDoc(collection(db, 'userPermissions'), userPermission);
+      console.log('✅ Permission added to userPermissions collection');
 
-    // Update user's permissions array
-    const userRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userRef);
-    if (userDoc.exists()) {
-      const currentPermissions = userDoc.data().permissions || [];
-      if (!currentPermissions.includes(permissionId)) {
-        await updateDoc(userRef, {
-          permissions: [...currentPermissions, permissionId]
-        });
+      // Update user's permissions array
+      const userRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userRef);
+      if (userDoc.exists()) {
+        const currentPermissions = userDoc.data().permissions || [];
+        if (!currentPermissions.includes(permissionId)) {
+          await updateDoc(userRef, {
+            permissions: [...currentPermissions, permissionId]
+          });
+          console.log('✅ Permission added to user permissions array');
+        } else {
+          console.log('⚠️ Permission already exists in user permissions array');
+        }
       }
+    } catch (error) {
+      console.error('Error granting temporary permission:', error);
+      throw error;
     }
   },
 
   // Get user permissions from user document
   async getUserPermissions(userId: string): Promise<string[]> {
-    const userDoc = await getDoc(doc(db, 'users', userId));
-    if (!userDoc.exists()) {
+    try {
+      // First check userPermissions collection for active permissions
+      const permissionsQuery = query(
+        collection(db, 'userPermissions'),
+        where('userId', '==', userId),
+        where('isActive', '==', true)
+      );
+      const permissionsSnapshot = await getDocs(permissionsQuery);
+      
+      const activePermissions: string[] = [];
+      const now = new Date();
+      
+      for (const permissionDoc of permissionsSnapshot.docs) {
+        const permissionData = permissionDoc.data();
+        
+        // Check if permission has expired
+        if (permissionData.expiresAt) {
+          let expiresAt: Date;
+          
+          if (permissionData.expiresAt instanceof Date) {
+            expiresAt = permissionData.expiresAt;
+          } else if (typeof permissionData.expiresAt.toDate === 'function') {
+            expiresAt = permissionData.expiresAt.toDate();
+          } else {
+            expiresAt = new Date(permissionData.expiresAt);
+          }
+          
+          // If permission has expired, skip it
+          if (expiresAt <= now) {
+            continue;
+          }
+        }
+        
+        // Check if permission was revoked
+        if (permissionData.revokedAt) {
+          let revokedAt: Date;
+          
+          if (permissionData.revokedAt instanceof Date) {
+            revokedAt = permissionData.revokedAt;
+          } else if (typeof permissionData.revokedAt.toDate === 'function') {
+            revokedAt = permissionData.revokedAt.toDate();
+          } else {
+            revokedAt = new Date(permissionData.revokedAt);
+          }
+          
+          // If permission was revoked, skip it
+          if (revokedAt <= now) {
+            continue;
+          }
+        }
+        
+        activePermissions.push(permissionData.permissionId);
+      }
+      
+      console.log('🔍 Active permissions from userPermissions collection:', activePermissions);
+      
+      // Don't include legacy users.permissions array anymore
+      // Only use userPermissions collection for consistency
+      return activePermissions;
+    } catch (error) {
+      console.error('Error getting user permissions:', error);
       return [];
     }
-    
-    const userData = userDoc.data() as User;
-    return userData.permissions || [];
   }
 };
 
@@ -591,8 +632,10 @@ export const subscriptionService = {
   // Create trial subscription for new user
   async createTrialSubscription(userId: string): Promise<void> {
     try {
+      console.log('🔍 Creating trial subscription for user:', userId);
       const trialEndsAt = new Date();
       trialEndsAt.setDate(trialEndsAt.getDate() + 7); // 1 week trial
+      console.log('🔍 Trial ends at:', trialEndsAt);
       
       const subscription: Subscription = {
         id: `trial_${userId}`,
@@ -623,11 +666,13 @@ export const subscriptionService = {
       
       // Grant all permissions for trial period
       const allPermissions = await permissionService.getAllPermissions();
+      console.log('🔍 All permissions found:', allPermissions);
       for (const permission of allPermissions) {
+        console.log('🔍 Granting permission:', permission.id, 'to user:', userId);
         await permissionService.grantTemporaryPermission(userId, permission.id, 'system', trialEndsAt);
       }
       
-      console.log(`Trial subscription created for user ${userId}`);
+      console.log(`✅ Trial subscription created for user ${userId}`);
     } catch (error) {
       console.error('Error creating trial subscription:', error);
       throw error;
@@ -754,27 +799,124 @@ export const subscriptionService = {
     try {
       console.log('🔍 getUserSubscription called for userId:', userId);
       
-      const subscriptionDoc = await getDoc(doc(db, 'subscriptions', `trial_${userId}`));
-      console.log('🔍 Subscription document exists:', subscriptionDoc.exists());
+      // Önce user document'ındaki subscription bilgisini kontrol et
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      console.log('🔍 User document exists:', userDoc.exists());
       
-      if (!subscriptionDoc.exists()) {
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        console.log('🔍 User data:', userData);
+        
+        // User'da subscription bilgisi varsa onu kullan
+        if (userData.subscription && userData.subscription.status) {
+          console.log('🔍 Found subscription in user document:', userData.subscription);
+          
+          const subscription = {
+            ...userData.subscription,
+            id: userData.subscription.id || `user_sub_${userId}`,
+            userId: userId,
+            startDate: userData.subscription.startDate?.toDate() || new Date(),
+            endDate: userData.subscription.endDate?.toDate() || new Date(),
+            trialEndsAt: userData.subscription.trialEndsAt?.toDate(),
+            lastPaymentDate: userData.subscription.lastPaymentDate?.toDate(),
+            nextPaymentDate: userData.subscription.nextPaymentDate?.toDate(),
+            // Trial süresi eklendi bilgisi
+            trialDaysAdded: userData.subscription.trialDaysAdded,
+            originalPlanDuration: userData.subscription.originalPlanDuration,
+            totalDuration: userData.subscription.totalDuration
+          } as Subscription;
+          
+          console.log('🔍 Processed user subscription:', subscription);
+          return subscription;
+        }
+        
+        // User'da subscription yoksa ama trialEndsAt varsa trial subscription oluştur
+        if (userData.trialEndsAt) {
+          console.log('🔍 Found trial period in user document:', userData.trialEndsAt);
+          
+          const trialEndsAt = userData.trialEndsAt.toDate();
+          const now = new Date();
+          
+          // Trial hala aktif mi kontrol et
+          if (trialEndsAt > now) {
+            const subscription = {
+              id: `trial_${userId}`,
+              userId: userId,
+              status: 'trial',
+              planName: 'trial',
+              planId: 'trial',
+              startDate: userData.createdAt?.toDate() || new Date(),
+              endDate: trialEndsAt,
+              trialEndsAt: trialEndsAt,
+              autoRenew: false,
+              permissions: ['question-generator', 'writing-evaluator', 'text-question-analysis']
+            } as Subscription;
+            
+            console.log('🔍 Processed trial subscription from user data:', subscription);
+            return subscription;
+          } else {
+            console.log('🔍 Trial period has expired');
+          }
+        }
+      }
+      
+      // User'da subscription yoksa subscriptions koleksiyonunu ara
+      const activeSubscriptionsQuery = query(
+        collection(db, 'subscriptions'),
+        where('userId', '==', userId),
+        where('status', '==', 'active'),
+        orderBy('startDate', 'desc')
+      );
+      
+      const activeSubscriptionsSnapshot = await getDocs(activeSubscriptionsQuery);
+      console.log('🔍 Active subscriptions found:', activeSubscriptionsSnapshot.docs.length);
+      
+      if (!activeSubscriptionsSnapshot.empty) {
+        // Aktif subscription bulundu, en son olanı al
+        const subscriptionData = activeSubscriptionsSnapshot.docs[0].data();
+        console.log('🔍 Active subscription data:', subscriptionData);
+        
+        const subscription = {
+          ...subscriptionData,
+          id: activeSubscriptionsSnapshot.docs[0].id,
+          startDate: subscriptionData.startDate?.toDate() || new Date(),
+          endDate: subscriptionData.endDate?.toDate() || new Date(),
+          trialEndsAt: subscriptionData.trialEndsAt?.toDate(),
+          lastPaymentDate: subscriptionData.lastPaymentDate?.toDate(),
+          nextPaymentDate: subscriptionData.nextPaymentDate?.toDate(),
+          // Trial süresi eklendi bilgisi
+          trialDaysAdded: subscriptionData.trialDaysAdded,
+          originalPlanDuration: subscriptionData.originalPlanDuration,
+          totalDuration: subscriptionData.totalDuration
+        } as Subscription;
+        
+        console.log('🔍 Processed active subscription:', subscription);
+        return subscription;
+      }
+      
+      // Aktif subscription yoksa trial subscription'ı ara
+      const trialSubscriptionDoc = await getDoc(doc(db, 'subscriptions', `trial_${userId}`));
+      console.log('🔍 Trial subscription document exists:', trialSubscriptionDoc.exists());
+      
+      if (!trialSubscriptionDoc.exists()) {
         console.log('🔍 No subscription document found, returning null');
         return null;
       }
       
-      const subscriptionData = subscriptionDoc.data();
-      console.log('🔍 Raw subscription data:', subscriptionData);
+      const trialSubscriptionData = trialSubscriptionDoc.data();
+      console.log('🔍 Raw trial subscription data:', trialSubscriptionData);
       
       const subscription = {
-        ...subscriptionData,
-        startDate: subscriptionData.startDate?.toDate() || new Date(),
-        endDate: subscriptionData.endDate?.toDate() || new Date(),
-        trialEndsAt: subscriptionData.trialEndsAt?.toDate(),
-        lastPaymentDate: subscriptionData.lastPaymentDate?.toDate(),
-        nextPaymentDate: subscriptionData.nextPaymentDate?.toDate()
+        ...trialSubscriptionData,
+        id: trialSubscriptionDoc.id,
+        startDate: trialSubscriptionData.startDate?.toDate() || new Date(),
+        endDate: trialSubscriptionData.endDate?.toDate() || new Date(),
+        trialEndsAt: trialSubscriptionData.trialEndsAt?.toDate(),
+        lastPaymentDate: trialSubscriptionData.lastPaymentDate?.toDate(),
+        nextPaymentDate: trialSubscriptionData.nextPaymentDate?.toDate()
       } as Subscription;
       
-      console.log('🔍 Processed subscription:', subscription);
+      console.log('🔍 Processed trial subscription:', subscription);
       return subscription;
     } catch (error) {
       console.error('🔍 Error getting user subscription:', error);
@@ -865,18 +1007,332 @@ export const subscriptionService = {
             trialEndsAt = new Date(userData.trialEndsAt);
           }
           
-          // If trial has expired, update user status
+          // If trial has expired, update user status and revoke permissions
           if (trialEndsAt <= new Date()) {
             await updateDoc(doc(db, 'users', userDoc.id), {
-              trialEndsAt: null
+              trialEndsAt: null,
+              subscriptionPermissions: [] // Revoke all subscription permissions
             });
-            console.log(`Trial expired for user ${userDoc.id}`);
+            
+            // Also revoke all user permissions
+            await this.revokeAllUserPermissions(userDoc.id);
+            
+            console.log(`Trial expired for user ${userDoc.id} - permissions revoked`);
           }
         }
       }
     } catch (error) {
       console.error('Error updating trial status:', error);
       throw error;
+    }
+  },
+
+  // Revoke all permissions for a user
+  async revokeAllUserPermissions(userId: string): Promise<void> {
+    try {
+      // Revoke all user permissions
+      const permissionsQuery = query(
+        collection(db, 'userPermissions'),
+        where('userId', '==', userId)
+      );
+      const permissionsSnapshot = await getDocs(permissionsQuery);
+      
+      for (const permissionDoc of permissionsSnapshot.docs) {
+        await updateDoc(permissionDoc.ref, {
+          isActive: false,
+          revokedAt: Timestamp.now(),
+          revokedBy: 'system'
+        });
+      }
+      
+      console.log(`All permissions revoked for user ${userId}`);
+    } catch (error) {
+      console.error('Error revoking user permissions:', error);
+    }
+  },
+
+  // Check and update expired subscriptions
+  async checkAndUpdateExpiredSubscriptions(): Promise<void> {
+    try {
+      const now = new Date();
+      
+      // Check subscriptions collection
+      const subscriptionsQuery = query(
+        collection(db, 'subscriptions'),
+        where('status', 'in', ['active', 'trial'])
+      );
+      const subscriptionsSnapshot = await getDocs(subscriptionsQuery);
+      
+      for (const subscriptionDoc of subscriptionsSnapshot.docs) {
+        const subscriptionData = subscriptionDoc.data();
+        let endDate: Date;
+        
+        if (subscriptionData.endDate instanceof Date) {
+          endDate = subscriptionData.endDate;
+        } else if (typeof subscriptionData.endDate.toDate === 'function') {
+          endDate = subscriptionData.endDate.toDate();
+        } else {
+          endDate = new Date(subscriptionData.endDate);
+        }
+        
+        // If subscription has expired, update status and revoke permissions
+        if (endDate <= now) {
+          await updateDoc(subscriptionDoc.ref, {
+            status: 'expired'
+          });
+          
+          // Revoke user permissions
+          await this.revokeAllUserPermissions(subscriptionData.userId);
+          
+          // Update user document
+          await updateDoc(doc(db, 'users', subscriptionData.userId), {
+            subscriptionPermissions: [],
+            subscription: null
+          });
+          
+          console.log(`Subscription expired for user ${subscriptionData.userId} - permissions revoked`);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking expired subscriptions:', error);
+    }
+  },
+
+  // Check and revoke expired admin-granted permissions
+  async checkAndRevokeExpiredAdminPermissions(): Promise<void> {
+    try {
+      const now = new Date();
+      
+      // Check all user permissions for expired ones
+      const permissionsQuery = query(
+        collection(db, 'userPermissions'),
+        where('isActive', '==', true)
+      );
+      const permissionsSnapshot = await getDocs(permissionsQuery);
+      
+      for (const permissionDoc of permissionsSnapshot.docs) {
+        const permissionData = permissionDoc.data();
+        
+        // Check if permission has an expiration date
+        if (permissionData.expiresAt) {
+          let expiresAt: Date;
+          
+          if (permissionData.expiresAt instanceof Date) {
+            expiresAt = permissionData.expiresAt;
+          } else if (typeof permissionData.expiresAt.toDate === 'function') {
+            expiresAt = permissionData.expiresAt.toDate();
+          } else {
+            expiresAt = new Date(permissionData.expiresAt);
+          }
+          
+          // If permission has expired, revoke it
+          if (expiresAt <= now) {
+            await updateDoc(permissionDoc.ref, {
+              isActive: false,
+              revokedAt: Timestamp.now(),
+              revokedBy: 'system',
+              revocationReason: 'Permission expired'
+            });
+            
+            console.log(`Admin permission expired and revoked for user ${permissionData.userId}, permission: ${permissionData.permissionId}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking expired admin permissions:', error);
+    }
+  },
+
+  // YENİ SİSTEM: Check and clean permissions based on new rules
+  async checkAndCleanPermissions(): Promise<void> {
+    try {
+      console.log('🔍 Checking and cleaning permissions with new system...');
+      
+      const usersQuery = query(collection(db, 'users'));
+      const usersSnapshot = await getDocs(usersQuery);
+      
+      for (const userDoc of usersSnapshot.docs) {
+        const userData = userDoc.data();
+        const userId = userDoc.id;
+        
+        // Skip admin users
+        if (userData.role === 'admin') {
+          continue;
+        }
+        
+        const now = new Date();
+        let trialActive = false;
+        let subscriptionActive = false;
+        
+        // Check trial status
+        if (userData.trialEndsAt) {
+          let trialEndsAt: Date;
+          if (userData.trialEndsAt instanceof Date) {
+            trialEndsAt = userData.trialEndsAt;
+          } else if (typeof userData.trialEndsAt.toDate === 'function') {
+            trialEndsAt = userData.trialEndsAt.toDate();
+          } else {
+            trialEndsAt = new Date(userData.trialEndsAt);
+          }
+          
+          trialActive = trialEndsAt > now;
+        }
+        
+        // Check subscription status
+        if (userData.subscription?.status === 'active' || userData.subscription?.status === 'premium') {
+          let isSubscriptionActive = true;
+          
+          if (userData.subscription.endDate) {
+            let endDate: Date;
+            if (userData.subscription.endDate instanceof Date) {
+              endDate = userData.subscription.endDate;
+            } else if (typeof userData.subscription.endDate.toDate === 'function') {
+              endDate = userData.subscription.endDate.toDate();
+            } else {
+              endDate = new Date(userData.subscription.endDate);
+            }
+            
+            isSubscriptionActive = endDate > now;
+          }
+          
+          subscriptionActive = isSubscriptionActive;
+        }
+        
+        // YENİ SİSTEM KURALLARI
+        if (subscriptionActive) {
+          // 1. Subscription varsa, trial'ı sil
+          if (trialActive) {
+            console.log(`🔍 User ${userData.email} has both trial and subscription - removing trial`);
+            await updateDoc(doc(db, 'users', userId), {
+              trialEndsAt: null
+            });
+          }
+          console.log(`🔍 User ${userData.email} has active subscription - keeping permissions`);
+        } else if (trialActive) {
+          // 2. Sadece trial varsa, permission'ları koru
+          console.log(`🔍 User ${userData.email} has active trial - keeping permissions`);
+        } else {
+          // 3. Hiçbiri yoksa, tüm permission'ları sil
+          console.log(`🔍 User ${userData.email} has no active trial or subscription - clearing all permissions`);
+          
+          // Revoke all user permissions
+          await this.revokeAllUserPermissions(userId);
+          
+          // Update user document
+          await updateDoc(doc(db, 'users', userId), {
+            subscriptionPermissions: [],
+            trialEndsAt: null,
+            subscription: null
+          });
+          
+          console.log(`✅ All permissions cleared for user ${userData.email}`);
+        }
+      }
+      
+      console.log('✅ Permission check and clean completed');
+    } catch (error) {
+      console.error('Error checking and cleaning permissions:', error);
+    }
+  },
+
+  // YENİ: Save permission status to database for caching
+  async savePermissionStatusToDatabase(users: User[]): Promise<void> {
+    try {
+      console.log('🔍 Saving permission status to database for caching...');
+      
+      for (const user of users) {
+        // Admin kullanıcıları için özel durum
+        if (user.role === 'admin') {
+          await updateDoc(doc(db, 'users', user.uid), {
+            permissionStatus: {
+              permissions: ['all'],
+              source: 'admin',
+              trialActive: false,
+              subscriptionActive: false,
+              lastChecked: Timestamp.now()
+            }
+          });
+          console.log(`✅ Admin permission status saved for user ${user.email}: all permissions`);
+          continue;
+        }
+        
+        const now = new Date();
+        let trialActive = false;
+        let subscriptionActive = false;
+        let permissions: string[] = [];
+        let source: 'admin' | 'trial' | 'subscription' | 'none' = 'none';
+        
+        // Check trial status
+        if (user.trialEndsAt) {
+          let trialEnd: Date;
+          if (user.trialEndsAt instanceof Date) {
+            trialEnd = user.trialEndsAt;
+          } else if (typeof (user.trialEndsAt as any).toDate === 'function') {
+            trialEnd = (user.trialEndsAt as any).toDate();
+          } else {
+            trialEnd = new Date(user.trialEndsAt);
+          }
+          trialActive = now < trialEnd;
+        }
+        
+        // Check subscription status
+        if (user.subscription?.status === 'active') {
+          let isSubscriptionActive = true;
+          if (user.subscription.endDate) {
+            let endDate: Date;
+            if (user.subscription.endDate instanceof Date) {
+              endDate = user.subscription.endDate;
+            } else if (typeof (user.subscription.endDate as any).toDate === 'function') {
+              endDate = (user.subscription.endDate as any).toDate();
+            } else {
+              endDate = new Date(user.subscription.endDate);
+            }
+            isSubscriptionActive = now < endDate;
+          }
+          subscriptionActive = isSubscriptionActive;
+        }
+        
+        // Determine permissions based on new system
+        if (subscriptionActive) {
+          permissions = ['question-generator', 'writing-evaluator', 'text-question-analysis'];
+          source = 'subscription';
+        } else if (trialActive) {
+          permissions = ['question-generator', 'writing-evaluator', 'text-question-analysis'];
+          source = 'trial';
+        } else {
+          // Check admin permissions
+          const explicitPermissions = await permissionService.getUserPermissions(user.uid);
+          if (explicitPermissions.length > 0) {
+            permissions = explicitPermissions;
+            source = 'admin';
+          } else {
+            permissions = [];
+            source = 'none';
+          }
+        }
+        
+        // Save to user document
+        await updateDoc(doc(db, 'users', user.uid), {
+          permissionStatus: {
+            permissions,
+            source,
+            trialActive,
+            subscriptionActive,
+            lastChecked: Timestamp.now()
+          }
+        });
+        
+        console.log(`✅ Permission status saved for user ${user.email}:`, {
+          permissions,
+          source,
+          trialActive,
+          subscriptionActive
+        });
+      }
+      
+      console.log('✅ Permission status saved to database for all users');
+    } catch (error) {
+      console.error('Error saving permission status to database:', error);
     }
   }
 };

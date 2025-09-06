@@ -15,6 +15,70 @@ import { User, Subscription, SubscriptionPlan, SubscriptionPayment } from '@/typ
 
 export class SubscriptionService {
   
+  // Kullanıcının kalan trial süresini hesapla
+  async getRemainingTrialTime(userId: string): Promise<number> {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      
+      if (!userDoc.exists()) {
+        return 0;
+      }
+      
+      const userData = userDoc.data();
+      const now = new Date();
+      
+      // User document'ındaki trialEndsAt'ı kontrol et
+      if (userData.trialEndsAt) {
+        let trialEnd: Date;
+        
+        if (userData.trialEndsAt instanceof Date) {
+          trialEnd = userData.trialEndsAt;
+        } else if (userData.trialEndsAt && typeof userData.trialEndsAt.toDate === 'function') {
+          trialEnd = userData.trialEndsAt.toDate();
+        } else {
+          trialEnd = new Date(userData.trialEndsAt);
+        }
+        
+        if (!isNaN(trialEnd.getTime()) && trialEnd > now) {
+          const remainingMs = trialEnd.getTime() - now.getTime();
+          const remainingDays = Math.ceil(remainingMs / (1000 * 60 * 60 * 24));
+          console.log('🔍 Remaining trial time:', remainingDays, 'days');
+          return Math.max(0, remainingDays);
+        }
+      }
+      
+      // Trial subscription'ı da kontrol et
+      const trialSubscriptionDoc = await getDoc(doc(db, 'subscriptions', `trial_${userId}`));
+      
+      if (trialSubscriptionDoc.exists()) {
+        const trialData = trialSubscriptionDoc.data();
+        let trialEnd: Date;
+        
+        if (trialData.trialEndsAt) {
+          if (trialData.trialEndsAt instanceof Date) {
+            trialEnd = trialData.trialEndsAt;
+          } else if (trialData.trialEndsAt && typeof trialData.trialEndsAt.toDate === 'function') {
+            trialEnd = trialData.trialEndsAt.toDate();
+          } else {
+            trialEnd = new Date(trialData.trialEndsAt);
+          }
+          
+          if (!isNaN(trialEnd.getTime()) && trialEnd > now) {
+            const remainingMs = trialEnd.getTime() - now.getTime();
+            const remainingDays = Math.ceil(remainingMs / (1000 * 60 * 60 * 24));
+            console.log('🔍 Remaining trial time from subscription:', remainingDays, 'days');
+            return Math.max(0, remainingDays);
+          }
+        }
+      }
+      
+      return 0;
+    } catch (error) {
+      console.error('Error calculating remaining trial time:', error);
+      return 0;
+    }
+  }
+
   // Kullanıcıya abonelik planını aktif et
   async activateSubscription(
     userId: string, 
@@ -48,10 +112,23 @@ export class SubscriptionService {
         updatedAt: planData.updatedAt?.toDate ? planData.updatedAt.toDate() : planData.updatedAt
       } as SubscriptionPlan;
       
-      // Subscription oluştur
+      // Kalan trial süresini hesapla
+      const remainingTrialDays = await this.getRemainingTrialTime(userId);
+      console.log('🔍 Remaining trial days to add:', remainingTrialDays);
+      
+      // Subscription oluştur - trial süresini de ekle
       const subscriptionId = `sub_${userId}_${Date.now()}`;
       const now = new Date();
-      const endDate = new Date(now.getTime() + (plan.duration * 24 * 60 * 60 * 1000));
+      const totalDuration = plan.duration + remainingTrialDays; // Plan süresi + kalan trial süresi
+      const endDate = new Date(now.getTime() + (totalDuration * 24 * 60 * 60 * 1000));
+      
+      console.log('🔍 Subscription duration calculation:', {
+        planDuration: plan.duration,
+        remainingTrialDays,
+        totalDuration,
+        startDate: now,
+        endDate
+      });
       
       const subscription: Subscription = {
         id: subscriptionId,
@@ -65,7 +142,11 @@ export class SubscriptionService {
         permissions: plan.permissions,
         paymentHistory: [],
         lastPaymentDate: now,
-        nextPaymentDate: endDate
+        nextPaymentDate: endDate,
+        // Trial süresi eklendi bilgisi
+        trialDaysAdded: remainingTrialDays,
+        originalPlanDuration: plan.duration,
+        totalDuration: totalDuration
       };
       
       // Payment record oluştur
@@ -94,7 +175,11 @@ export class SubscriptionService {
         startDate: Timestamp.fromDate(subscription.startDate),
         endDate: Timestamp.fromDate(subscription.endDate),
         lastPaymentDate: Timestamp.fromDate(subscription.lastPaymentDate!),
-        nextPaymentDate: Timestamp.fromDate(subscription.nextPaymentDate!)
+        nextPaymentDate: Timestamp.fromDate(subscription.nextPaymentDate!),
+        // Trial süresi eklendi bilgisi - bu field'ları da kaydet
+        trialDaysAdded: subscription.trialDaysAdded,
+        originalPlanDuration: subscription.originalPlanDuration,
+        totalDuration: subscription.totalDuration
       });
       
       await setDoc(doc(db, 'subscriptionPayments', payment.id), {
@@ -147,7 +232,9 @@ export class SubscriptionService {
         subscriptionPermissions: subscription.permissions,
         lastSubscriptionDate: Timestamp.fromDate(subscription.startDate),
         totalSubscriptions: 1, // TODO: Increment existing value
-        subscription: subscriptionData
+        subscription: subscriptionData,
+        // YENİ SİSTEM: Subscription alındığında trial'ı sil
+        trialEndsAt: null
       });
       
       console.log('✅ SubscriptionService: User başarıyla güncellendi!');

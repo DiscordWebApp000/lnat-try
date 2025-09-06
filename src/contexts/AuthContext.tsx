@@ -7,6 +7,7 @@ import { User } from '@/types/user';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { clearAuth, fetchUserProfile } from '@/store/slices/authSlice';
 import { fetchUserPermissions } from '@/store/slices/permissionsSlice';
+import { permissionManager } from '@/lib/permission-manager';
 
 
 interface AuthContextType {
@@ -16,7 +17,7 @@ interface AuthContextType {
   permissions: string[];
   permissionsLoading: boolean;
   refreshUser: () => Promise<void>;
-  hasPermission: (tool: string) => boolean;
+  hasPermission: (tool: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -56,60 +57,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [firebaseUser, dispatch, loadPermissions]);
 
-  const hasPermission = useCallback((tool: string): boolean => {
+  const hasPermission = useCallback(async (tool: string): Promise<boolean> => {
     if (!currentUser) {
       return false;
     }
     
-    // Admin her zaman erişebilir
-    if (currentUser.role === 'admin') {
-      return true;
+    try {
+      return await permissionManager.hasPermissionForTool(currentUser, tool);
+    } catch (error) {
+      console.error('Error checking permission:', error);
+      return false;
     }
-    
-    // Explicit permission varsa kontrol et
-    const hasExplicitPermission = userPermissions.some((up: any) => up.permissionId === tool && up.isActive);
-    if (hasExplicitPermission) {
-      return true;
-    }
-    
-    // Trial süresi kontrolü
-    if (currentUser.trialEndsAt) {
-      const now = new Date();
-      
-      // Timestamp'ı Date'e dönüştür
-      let trialEnd: Date;
-      if (currentUser.trialEndsAt instanceof Date) {
-        trialEnd = currentUser.trialEndsAt;
-      } else if (typeof currentUser.trialEndsAt.toDate === 'function') {
-        trialEnd = currentUser.trialEndsAt.toDate();
-      } else {
-        trialEnd = new Date(currentUser.trialEndsAt);
-      }
-      
-      const isTrialActive = now < trialEnd;
-      
-      if (isTrialActive) {
-        return true;
-      }
-    }
-    
-    // Subscription kontrolü
-    if (currentUser.subscription?.status === 'premium') {
-      return true;
-    }
-    
-    if (currentUser.subscription?.status === 'trial' && currentUser.subscription.trialEndsAt) {
-      const now = new Date();
-      const trialEnd = currentUser.subscription.trialEndsAt;
-      const isTrialActive = now < trialEnd;
-      
-      if (isTrialActive) {
-        return true;
-      }
-    }
-    
-    return false;
-  }, [currentUser, userPermissions]);
+  }, [currentUser]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -138,7 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     currentUser,
     firebaseUser,
     loading: loading || authLoading,
-    permissions: userPermissions.map((up: any) => up.permissionId),
+    permissions: userPermissions, // userPermissions artık string array'i
     permissionsLoading,
     refreshUser,
     hasPermission

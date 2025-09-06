@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Brain, BookOpen, FileText, ArrowRight, Star, Zap, Users, Target, PenTool, Lock } from 'lucide-react';
+import { Brain, BookOpen, FileText, ArrowRight, Star, Zap, Users, Target, PenTool } from 'lucide-react';
 import PermissionModal from '@/components/forms/PermissionModal';
 import Navbar from '@/components/ui/Navbar';
 import Footer from '@/components/ui/Footer';
@@ -24,7 +24,7 @@ export default function Home() {
     toolPath: ''
   });
 
-  const handleToolClick = (toolName: string, toolDescription: string, toolPath: string) => {
+  const handleToolClick = async (toolName: string, toolDescription: string, toolPath: string) => {
     // Eğer kullanıcı giriş yapmamışsa modal aç
     if (!currentUser) {
       setModalState({
@@ -39,11 +39,17 @@ export default function Home() {
     // Eğer kullanıcı giriş yapmışsa yetki kontrolü yap
     const toolKey = toolPath.replace('/', '') as 'text-question-analysis' | 'question-generator' | 'writing-evaluator';
     
-    if (hasPermission(toolKey)) {
-      // Yetki varsa direkt tool'a git
-      router.push(toolPath);
-    } else {
-      // Yetki yoksa dashboard'a git
+    try {
+      const hasAccess = await hasPermission(toolKey);
+      if (hasAccess) {
+        // Yetki varsa direkt tool'a git
+        router.push(toolPath);
+      } else {
+        // Yetki yoksa dashboard'a git
+        router.push('/dashboard');
+      }
+    } catch (error) {
+      console.error('Error checking permission:', error);
       router.push('/dashboard');
     }
   };
@@ -166,12 +172,8 @@ export default function Home() {
 
                   <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                     <div className="flex items-center gap-2 text-blue-600 font-semibold">
-                      <span>{currentUser && hasPermission('question-generator') ? 'Get Started' : (currentUser ? 'Permission Required' : 'Login')}</span>
-                      {currentUser && hasPermission('question-generator') ? (
-                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                      ) : (
-                        <Lock className="w-4 h-4" />
-                      )}
+                      <span>{currentUser ? 'Get Started' : 'Login'}</span>
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </div>
                     <div className="flex items-center gap-1 bg-yellow-50 px-3 py-1 rounded-full">
                       <Star className="w-4 h-4 text-yellow-400 fill-current" />
@@ -227,12 +229,8 @@ export default function Home() {
 
                   <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                     <div className="flex items-center gap-2 text-green-600 font-semibold">
-                      <span>{currentUser && hasPermission('text-question-analysis') ? 'Get Started' : (currentUser ? 'Permission Required' : 'Login')}</span>
-                      {currentUser && hasPermission('text-question-analysis') ? (
-                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                      ) : (
-                        <Lock className="w-4 h-4" />
-                      )}
+                      <span>{currentUser ? 'Get Started' : 'Login'}</span>
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </div>
                     <div className="flex items-center gap-1 bg-green-50 px-3 py-1 rounded-full">
                       <Zap className="w-4 h-4 text-green-500" />
@@ -288,12 +286,8 @@ export default function Home() {
 
                   <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                     <div className="flex items-center gap-2 text-purple-600 font-semibold">
-                      <span>{currentUser && hasPermission('writing-evaluator') ? 'Get Started' : (currentUser ? 'Permission Required ' : 'Login')}</span>
-                      {currentUser && hasPermission('writing-evaluator') ? (
-                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                      ) : (
-                        <Lock className="w-4 h-4" />
-                      )}
+                      <span>{currentUser ? 'Get Started' : 'Login'}</span>
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </div>
                     <div className="flex items-center gap-1 bg-purple-50 px-3 py-1 rounded-full">
                       <Star className="w-4 h-4 text-purple-500" />
@@ -364,15 +358,15 @@ export default function Home() {
               Start using for free now and prepare for the PREP exam
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href={currentUser && hasPermission('question-generator') ? "/question-generator" : "/dashboard"} className="inline-flex items-center justify-center gap-2 bg-white text-blue-600 px-8 py-3 rounded-xl font-semibold hover:bg-gray-100 transition-colors">
+              <Link href={currentUser ? "/question-generator" : "/dashboard"} className="inline-flex items-center justify-center gap-2 bg-white text-blue-600 px-8 py-3 rounded-xl font-semibold hover:bg-gray-100 transition-colors">
                 <BookOpen className="w-5 h-5" />
                 Question Generator
               </Link>
-              <Link href={currentUser && hasPermission('text-question-analysis') ? "/text-question-analysis" : "/dashboard"} className="inline-flex items-center justify-center gap-2 bg-white/20 text-white px-8 py-3 rounded-xl font-semibold hover:bg-white/30 transition-colors border border-white/30">
+              <Link href={currentUser ? "/text-question-analysis" : "/dashboard"} className="inline-flex items-center justify-center gap-2 bg-white/20 text-white px-8 py-3 rounded-xl font-semibold hover:bg-white/30 transition-colors border border-white/30">
                 <FileText className="w-5 h-5" />
                 Text Analysis
               </Link>
-              <Link href={currentUser && hasPermission('writing-evaluator') ? "/writing-evaluator" : "/dashboard"} className="inline-flex items-center justify-center gap-2 bg-white/20 text-white px-8 py-3 rounded-xl font-semibold hover:bg-white/30 transition-colors border border-white/30">
+              <Link href={currentUser ? "/writing-evaluator" : "/dashboard"} className="inline-flex items-center justify-center gap-2 bg-white/20 text-white px-8 py-3 rounded-xl font-semibold hover:bg-white/30 transition-colors border border-white/30">
                 <PenTool className="w-5 h-5" />
                 Writing Evaluator
               </Link>
@@ -392,7 +386,7 @@ export default function Home() {
         toolName={modalState.toolName}
         toolDescription={modalState.toolDescription}
         isLoggedIn={!!currentUser}
-        hasPermission={currentUser ? hasPermission(modalState.toolPath.replace('/', '') as 'text-question-analysis' | 'question-generator' | 'writing-evaluator') : false}
+        hasPermission={false}
         toolPath={modalState.toolPath}
       />
     </div>

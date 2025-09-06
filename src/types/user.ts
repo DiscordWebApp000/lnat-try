@@ -17,6 +17,15 @@ export interface User {
   totalSubscriptions?: number; // Toplam kaç kez abonelik alındı
   lastSubscriptionDate?: Date; // Son abonelik tarihi
   subscriptionPermissions?: string[]; // Subscription'dan gelen permission'lar
+  
+  // YENİ: Cached permission status
+  permissionStatus?: {
+    permissions: string[];
+    source: 'admin' | 'trial' | 'subscription' | 'none';
+    trialActive: boolean;
+    subscriptionActive: boolean;
+    lastChecked: Date;
+  };
 }
 
 export interface UserProfile {
@@ -112,6 +121,10 @@ export interface Subscription {
   nextPaymentDate?: Date;
   permissions: string[]; // Bu subscription'da verilen tool permission'ları
   paymentHistory: SubscriptionPayment[]; // Ödeme geçmişi
+  // Trial süresi eklendi bilgisi
+  trialDaysAdded?: number; // Eklenen trial gün sayısı
+  originalPlanDuration?: number; // Orijinal plan süresi
+  totalDuration?: number; // Toplam süre (plan + trial)
 }
 
 export interface TrialPeriod {

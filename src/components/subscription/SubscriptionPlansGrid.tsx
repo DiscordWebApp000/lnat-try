@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Crown, CheckCircle, Shield, Star } from 'lucide-react';
+import { Crown, CheckCircle, Shield } from 'lucide-react';
 
 interface SubscriptionPlansGridProps {
   plans: any[];
@@ -26,25 +26,9 @@ const SubscriptionPlansGrid: React.FC<SubscriptionPlansGridProps> = ({
     return gradients[index % gradients.length];
   };
 
-  const getPlanBadge = (index: number) => {
-    const badges = [
-      { text: 'Temel', color: 'text-blue-600' },
-      { text: 'Popüler', color: 'text-purple-600' },
-      { text: 'Gelişmiş', color: 'text-green-600' },
-      { text: 'Premium', color: 'text-orange-600' }
-    ];
-    return badges[index % badges.length];
-  };
+  
 
-  const getPlanIcon = (index: number) => {
-    const icons = [
-      <Crown key="crown-1" className="w-6 h-6" />,
-      <Star key="star-1" className="w-6 h-6" />,
-      <Shield key="shield-1" className="w-6 h-6" />,
-      <Crown key="crown-2" className="w-6 h-6" />
-    ];
-    return icons[index % icons.length];
-  };
+
 
   if (!plans || plans.length === 0) {
     return (

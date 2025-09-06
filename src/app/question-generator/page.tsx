@@ -5,7 +5,7 @@ import { Question, EvaluationResult, openaiAI } from '@/lib/gpt-ai';
 import TextInput from '@/components/forms/TextInput';
 import QuestionDisplay from '@/components/ui/QuestionDisplay';
 import EvaluationResults from '@/components/ui/EvaluationResults';
-import { Brain, AlertCircle, RefreshCw, Lock, Shield } from 'lucide-react';
+import { Brain, AlertCircle, RefreshCw, Lock } from 'lucide-react';
 import { PulseLoader, ClipLoader, RingLoader } from 'react-spinners';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,7 +26,7 @@ export default function SoruUretici() {
 }
 
 function SoruUreticiContent() {
-  const { currentUser, loading, hasPermission, permissionsLoading } = useAuth();
+  const { currentUser, loading } = useAuth();
   const dispatch = useAppDispatch();
   
   const [appState, setAppState] = useState<AppState>('input');
@@ -46,7 +46,7 @@ function SoruUreticiContent() {
   }, []);
 
   // Yetki kontrolü - loading veya yetki yoksa erken return
-  if (loading || permissionsLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center">
         <div className="text-center">
@@ -72,20 +72,6 @@ function SoruUreticiContent() {
     );
   }
 
-  if (!hasPermission('question-generator')) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center">
-        <div className="text-center">
-          <Shield className="w-16 h-16 text-orange-600 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Permission Required</h1>
-          <p className="text-gray-600 mb-4">You need to be granted permission to use this tool.</p>
-          <Link href="/dashboard" className="text-green-600 hover:text-green-700 font-medium">
-            Back to Dashboard
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   const handleGenerateQuestions = async (text: string, questionCount: number) => {
     setIsLoading(true);

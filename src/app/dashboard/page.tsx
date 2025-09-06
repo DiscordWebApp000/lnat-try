@@ -36,6 +36,7 @@ export default function DashboardPage() {
   const dispatch = useAppDispatch();
   const { results: examResults, loading: loadingResults } = useAppSelector((state: any) => state.examResults);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [toolPermissions, setToolPermissions] = useState<{[key: string]: boolean}>({});
   const router = useRouter();
 
   const loadUserData = useCallback(async () => {
@@ -65,6 +66,29 @@ export default function DashboardPage() {
       router.push('/login');
     }
   }, [loading, currentUser, router]);
+
+  // Load tool permissions
+  useEffect(() => {
+    const loadToolPermissions = async () => {
+      if (!currentUser) return;
+      
+      const tools = ['text-question-analysis', 'question-generator', 'writing-evaluator'];
+      const permissions: {[key: string]: boolean} = {};
+      
+      for (const tool of tools) {
+        try {
+          permissions[tool] = await hasPermission(tool);
+        } catch (error) {
+          console.error(`Error checking permission for ${tool}:`, error);
+          permissions[tool] = false;
+        }
+      }
+      
+      setToolPermissions(permissions);
+    };
+
+    loadToolPermissions();
+  }, [currentUser, hasPermission]);
 
   useEffect(() => {
     if (currentUser) {
@@ -389,7 +413,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {['text-question-analysis', 'question-generator', 'writing-evaluator'].map((tool) => {
               const toolInfo = getToolInfo(tool);
-              const userHasPermission = hasPermission(tool);
+              const userHasPermission = toolPermissions[tool] || false;
               const Icon = toolInfo.icon;
               
               console.log(`🔍 Dashboard - Tool: ${tool}, hasPermission: ${userHasPermission}`);

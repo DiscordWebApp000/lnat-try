@@ -143,16 +143,30 @@ export default function SubscriptionStatus({ className = '' }: SubscriptionStatu
               </div>
               <div className="flex-1">
                 <h3 className="text-xl font-bold text-gray-900 mb-1">
-                  {subscription.planName === 'trial' ? 'Deneme Planı' : subscription.planName || 'Premium Plan'}
+                  {subscription.planName === 'trial' 
+                    ? 'Trial Plan' 
+                    : subscription.planName === 'premium' 
+                    ? 'Premium Plan'
+                    : subscription.planName === 'basic'
+                    ? 'Basic Plan'
+                    : subscription.planName === 'enterprise'
+                    ? 'Enterprise Plan'
+                    : subscription.planName || 'Premium Plan'
+                  }
                 </h3>
                 <p className="text-sm text-gray-600">
                   {subscription.status === 'active' 
-                    ? 'Aktif aboneliğiniz bulunuyor' 
+                    ? 'You have an active subscription' 
                     : subscription.status === 'trial'
-                    ? 'Deneme süreniz devam ediyor'
-                    : 'Aboneliğiniz bulunmuyor'
+                    ? 'Your trial period is ongoing'
+                    : 'No subscription found'
                   }
                 </p>
+                {subscription.planId && subscription.planId !== 'trial' && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Plan ID: {subscription.planId}
+                  </p>
+                )}
               </div>
               <div className="text-right">
                 <div className={`text-2xl font-bold ${
@@ -162,15 +176,20 @@ export default function SubscriptionStatus({ className = '' }: SubscriptionStatu
                     ? 'text-blue-600'
                     : 'text-gray-600'
                 }`}>
-                  {subscription.status === 'trial' ? 'Ücretsiz' : 'Premium'}
+                  {subscription.status === 'trial' ? 'Free' : 'Premium'}
                 </div>
                 <div className="text-sm text-gray-500">
-                  {subscription.status === 'trial' ? '7 Gün' : 'Aktif'}
+                  {subscription.status === 'trial' 
+                    ? '7 Days' 
+                    : subscription.status === 'active'
+                    ? 'Active'
+                    : 'Inactive'
+                  }
                 </div>
               </div>
             </div>
 
-            {/* Abonelik Detayları */}
+            {/* Subscription Details */}
             <div className="grid md:grid-cols-2 gap-4 text-sm">
               <div className="space-y-2">
                 <div className="flex justify-between">
@@ -181,22 +200,116 @@ export default function SubscriptionStatus({ className = '' }: SubscriptionStatu
                   <span className="text-gray-600">End Date:</span>
                   <span className="font-medium text-gray-700">{formatDate(subscription.endDate)}</span>
                 </div>
+                {subscription.lastPaymentDate && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Last Payment:</span>
+                    <span className="font-medium text-gray-700">{formatDate(subscription.lastPaymentDate)}</span>
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Auto Renew:</span>
+                  <span className="text-gray-600">Auto Renewal:</span>
                   <span className={`font-medium ${subscription.autoRenew ? 'text-green-600' : 'text-gray-600'}`}>
-                    {subscription.autoRenew ? 'Aktif' : 'Pasif'}
+                    {subscription.autoRenew ? 'Active' : 'Inactive'}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Plan ID:</span>
                   <span className="font-mono text-xs text-gray-700">{subscription.planId}</span>
                 </div>
+                {subscription.nextPaymentDate && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Next Payment:</span>
+                    <span className="font-medium text-gray-700">{formatDate(subscription.nextPaymentDate)}</span>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Trial Countdown - Sadece trial durumunda göster */}
+            {/* Active Features */}
+            {subscription.status === 'active' && subscription.permissions && subscription.permissions.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-green-200">
+                <h4 className="text-sm font-medium text-green-900 mb-3">Active Features</h4>
+                <div className="flex flex-wrap gap-2">
+                  {subscription.permissions.map((permission: string, index: number) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200"
+                    >
+                      ✅ {permission}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Trial Süresi Eklendi Bilgisi */}
+            {subscription.status === 'active' && (
+              (() => {
+                // Eğer trialDaysAdded field'ı varsa onu kullan
+                if (subscription.trialDaysAdded && subscription.trialDaysAdded > 0) {
+                  return (
+                    <div className="mt-4 pt-4 border-t border-green-200">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <span className="text-sm font-medium text-blue-900">Bonus Time</span>
+                        </div>
+                        <p className="text-xs text-blue-700 mt-1">
+                          Your remaining trial time ({subscription.trialDaysAdded} days) has been added to your premium subscription.
+                        </p>
+                        <div className="mt-2 text-xs text-blue-600">
+                          <div className="flex justify-between">
+                            <span>Original Plan:</span>
+                            <span>{subscription.originalPlanDuration} days</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Added Trial:</span>
+                            <span>+{subscription.trialDaysAdded} days</span>
+                          </div>
+                          <div className="flex justify-between font-medium border-t border-blue-200 pt-1 mt-1">
+                            <span>Total Duration:</span>
+                            <span>{subscription.totalDuration} days</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                
+                // Eğer trialDaysAdded yoksa, süreyi hesapla (eski format için)
+                const totalDays = Math.ceil((subscription.endDate.getTime() - subscription.startDate.getTime()) / (1000 * 60 * 60 * 24));
+                const standardPlanDays = 30; // Varsayılan plan süresi
+                
+                if (totalDays > standardPlanDays) {
+                  const extraDays = totalDays - standardPlanDays;
+                  return (
+                    <div className="mt-4 pt-4 border-t border-green-200">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <span className="text-sm font-medium text-blue-900">Bonus Time</span>
+                        </div>
+                        <p className="text-xs text-blue-700 mt-1">
+                          Your subscription includes extra time ({extraDays} additional days).
+                        </p>
+                        <div className="mt-2 text-xs text-blue-600">
+                          <div className="flex justify-between">
+                            <span>Total Duration:</span>
+                            <span>{totalDays} days</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                
+                return null;
+              })()
+            )}
+
+            {/* Trial Countdown - Only show for trial status */}
             {subscription.status === 'trial' && subscription.trialEndsAt && (
               <div className="mt-4 pt-4 border-t border-blue-200">
                 <div className="text-center mb-3">
@@ -229,7 +342,7 @@ export default function SubscriptionStatus({ className = '' }: SubscriptionStatu
                   </div>
                 </div>
                 <div className="text-center mt-2 text-xs text-blue-600">
-                  End: {formatDate(subscription.trialEndsAt)}
+                  Ends: {formatDate(subscription.trialEndsAt)}
                 </div>
               </div>
             )}
@@ -243,6 +356,45 @@ export default function SubscriptionStatus({ className = '' }: SubscriptionStatu
           <h3 className="text-lg font-semibold text-green-800 mb-2">Active Subscription</h3>
           <p className="text-green-700">
             You have an active subscription. Enjoy the premium features!
+          </p>
+        </div>
+      )}
+
+      {/* Trial expired message */}
+      {subscription?.status === 'trial' && subscription.trialEndsAt && (() => {
+        const now = new Date();
+        let trialEnd: Date;
+        
+        if (subscription.trialEndsAt instanceof Date) {
+          trialEnd = subscription.trialEndsAt;
+        } else if (subscription.trialEndsAt && typeof subscription.trialEndsAt.toDate === 'function') {
+          trialEnd = subscription.trialEndsAt.toDate();
+        } else {
+          trialEnd = new Date(subscription.trialEndsAt);
+        }
+        
+        if (!isNaN(trialEnd.getTime()) && trialEnd < now) {
+          return (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+              <h3 className="text-lg font-semibold text-red-800 mb-2">Trial Period Expired</h3>
+              <p className="text-red-700 mb-3">
+                Your trial period has ended. Subscribe to a premium plan to continue using the features.
+              </p>
+              <div className="text-sm text-red-600">
+                <p>Expired on: {formatDate(trialEnd)}</p>
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
+      {/* No subscription message */}
+      {!subscription && (
+        <div className="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">No Active Subscription</h3>
+          <p className="text-gray-700">
+            You don&apos;t have an active subscription. Choose a plan below to get started.
           </p>
         </div>
       )}
