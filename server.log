@@ -1,0 +1,37 @@
+
+> lna-app@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.4.5
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.100.41:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 1637ms
+ ✓ Compiled /api/paytr-iframe-webhook in 441ms (425 modules)
+🔍 PayTR Config Debug:
+  - MERCHANT_ID: 605613
+  - MERCHANT_KEY: SET
+  - MERCHANT_SALT: TajMrb3xiMd5uy4D
+🔄 PayTR iFrame Webhook başlatıldı
+📡 Request method: POST
+🌐 Request URL: http://localhost:3000/api/paytr-iframe-webhook
+🔍 PayTR Config: {
+  MERCHANT_ID: '605613',
+  MERCHANT_KEY: 'SET',
+  MERCHANT_SALT: 'TajMrb3xiMd5uy4D'
+}
+📥 Webhook Data (Form): {
+  merchant_oid: 'test123',
+  status: 'success',
+  total_amount: '5999',
+  hash: 'mVC 6OECA1ZuXu9IIHPGU0AhDu6ZQxt8n4oJ1SsV/Ms='
+}
+🔍 Webhook Hash Debug:
+  - Hash String: test123TajMrb3xiMd5uy4Dsuccess5999
+  - Received Hash: mVC 6OECA1ZuXu9IIHPGU0AhDu6ZQxt8n4oJ1SsV/Ms=
+  - Calculated Hash: QcX6L9emlGpEoH59bjavd0su5lKiTleQBpAh6/glCLM=
+  - Match: false
+ POST /api/paytr-iframe-webhook 400 in 674ms
+ ✓ Compiled in 128ms (239 modules)

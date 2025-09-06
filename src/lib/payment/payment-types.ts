@@ -2,7 +2,7 @@ export interface PaymentRequest {
   userId: string;
   amount: number;
   currency: 'TRY' | 'USD';
-  planType: 'premium';
+  planType: string; // Plan tipi artık esnek
   userEmail: string;
   userName: string;
   userPhone?: string;

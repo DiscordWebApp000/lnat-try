@@ -8,9 +8,9 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppDispatch } from '@/store/hooks';
 import { saveExamResult } from '@/store/slices/examResultsSlice';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import { ToolAccessGuard } from '@/components/ToolAccessGuard';
+import Navbar from '@/components/ui/Navbar';
+import Footer from '@/components/ui/Footer';
+import { ToolAccessGuard } from '@/components/ui/ToolAccessGuard';
 
 type AppState = 'input' | 'evaluation' | 'error';
 

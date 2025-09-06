@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import { Shield, FileText, Scale, Users, CreditCard, AlertTriangle, Lock, Mail, Settings } from 'lucide-react';
 import Link from 'next/link';
-import Footer from '@/components/Footer';
+import Footer from '@/components/ui/Footer';
 
 export const metadata: Metadata = {
   title: 'Terms and Conditions - PREP AI Platform',

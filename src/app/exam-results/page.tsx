@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchUserExamResults, deleteExamResult } from '@/store/slices/examResultsSlice';
-import Navbar from '@/components/Navbar';
+import Navbar from '@/components/ui/Navbar';
 import { ExamResult } from '@/types/user';
 import { 
   BarChart3, 

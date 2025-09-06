@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchAllPermissions } from '@/store/slices/permissionsSlice';
 import { fetchAllUsers } from '@/store/slices/authSlice';
-import Navbar from '@/components/Navbar';
+import Navbar from '@/components/ui/Navbar';
 import { User, Permission } from '@/types/user';
 import { 
   Users, 
@@ -22,10 +22,10 @@ import {
   Edit,
   AlertCircle,
 } from 'lucide-react';
-import UserPermissionModal from '@/components/UserPermissionModal';
-import AdminSupportPanel from '@/components/AdminSupportPanel';
-import AdminSubscriptionPanel from '@/components/AdminSubscriptionPanel';
-import AdminSidebar from '@/components/AdminSidebar';
+import UserPermissionModal from '@/components/forms/UserPermissionModal';
+import AdminSupportPanel from '@/components/admin/AdminSupportPanel';
+import AdminSubscriptionPanel from '@/components/admin/AdminSubscriptionPanel';
+import AdminSidebar from '@/components/admin/AdminSidebar';
 
 export default function AdminPage() {
   const { currentUser, loading } = useAuth();

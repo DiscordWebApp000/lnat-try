@@ -2,18 +2,18 @@
 
 import { useState, useCallback } from 'react';
 import { Question, EvaluationResult, openaiAI } from '@/lib/gpt-ai';
-import TextInput from '@/components/TextInput';
-import QuestionDisplay from '@/components/QuestionDisplay';
-import EvaluationResults from '@/components/EvaluationResults';
+import TextInput from '@/components/forms/TextInput';
+import QuestionDisplay from '@/components/ui/QuestionDisplay';
+import EvaluationResults from '@/components/ui/EvaluationResults';
 import { Brain, AlertCircle, RefreshCw, Lock, Shield } from 'lucide-react';
 import { PulseLoader, ClipLoader, RingLoader } from 'react-spinners';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppDispatch } from '@/store/hooks';
 import { saveExamResult } from '@/store/slices/examResultsSlice';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import { ToolAccessGuard } from '@/components/ToolAccessGuard';
+import Navbar from '@/components/ui/Navbar';
+import Footer from '@/components/ui/Footer';
+import { ToolAccessGuard } from '@/components/ui/ToolAccessGuard';
 
 type AppState = 'input' | 'questions' | 'evaluation' | 'error';
 

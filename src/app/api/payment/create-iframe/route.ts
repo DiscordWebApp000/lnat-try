@@ -34,7 +34,7 @@ function validatePaymentRequest(body: any): { isValid: boolean; error?: string }
     return { isValid: false, error: 'Geçersiz tutar' };
   }
   
-  if (!body.planType || body.planType !== 'premium') {
+  if (!body.planType || typeof body.planType !== 'string') {
     return { isValid: false, error: 'Geçersiz plan tipi' };
   }
   

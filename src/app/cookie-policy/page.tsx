@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import { Shield, Cookie, Settings, Eye, Users, Lock } from 'lucide-react';
 import Link from 'next/link';
-import Footer from '@/components/Footer';
+import Footer from '@/components/ui/Footer';
 
 export const metadata: Metadata = {
   title: 'Cookie Policy - PREP AI Platform',

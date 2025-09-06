@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
             const defaultPlan = plansData.plans.find((plan: any) => plan.isDefault) || plansData.plans[0];
             planId = defaultPlan.id;
           }
-        } catch (planError) {
+        } catch {
           // Fallback plan kullanılacak
         }
         
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-  } catch (error) {
+  } catch {
     // PayTR'ye hata durumunda da text yanıt ver
     return new NextResponse('ERROR', {
       status: 500,

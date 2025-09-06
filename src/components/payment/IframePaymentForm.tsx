@@ -6,7 +6,11 @@ import { PaymentRequest } from '@/lib/payment/payment-types';
 import { SubscriptionPlan } from '@/types/user';
 import { CreditCard, CheckCircle, AlertCircle, Shield, Loader2, Monitor } from 'lucide-react';
 
-export default function IframePaymentForm() {
+interface IframePaymentFormProps {
+  selectedPlan?: any;
+}
+
+export default function IframePaymentForm({ selectedPlan: propSelectedPlan }: IframePaymentFormProps = {}) {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,8 +36,10 @@ export default function IframePaymentForm() {
           const data = await response.json();
           setSubscriptionPlans(data.plans || []);
           
-          // Varsayılan planı seç
-          if (data.defaultPlan) {
+          // Eğer prop olarak plan gelmişse onu kullan, yoksa varsayılan planı seç
+          if (propSelectedPlan) {
+            setSelectedPlan(propSelectedPlan);
+          } else if (data.defaultPlan) {
             setSelectedPlan(data.defaultPlan);
           } else if (data.plans && data.plans.length > 0) {
             setSelectedPlan(data.plans[0]);
@@ -49,7 +55,7 @@ export default function IframePaymentForm() {
     };
 
     fetchSubscriptionPlans();
-  }, []);
+  }, [propSelectedPlan]);
 
   // Input validation
   const validateInputs = (): { isValid: boolean; error?: string } => {
@@ -110,7 +116,7 @@ export default function IframePaymentForm() {
         userId: currentUser.uid,
         amount: selectedPlan.price,
         currency: selectedPlan.currency as 'TRY' | 'USD',
-        planType: selectedPlan.name as 'premium',
+        planType: selectedPlan.name, // Gerçek plan adını kullan
         userEmail: currentUser.email,
         userName: `${userFirstName} ${userLastName}`,
         userPhone: userPhone,
@@ -275,19 +281,19 @@ export default function IframePaymentForm() {
 
           <div className="text-center">
             <div className="text-sm text-gray-600 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 sm:p-6 rounded-xl border border-blue-200 shadow-sm">
-              <p className="font-semibold text-blue-800 mb-3 text-base sm:text-lg">💡 <strong>Ödeme Sonrası:</strong></p>
+              <p className="font-semibold text-blue-800 mb-3 text-base sm:text-lg">💡 <strong>After Payment:</strong></p>
               <ul className="list-none space-y-2 text-blue-700">
                 <li className="flex items-center justify-center">
                   <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                  <span className="text-sm sm:text-base">Yukarıdaki formda ödemenizi tamamlayın</span>
+                  <span className="text-sm sm:text-base">Complete the payment in the above form</span>
                 </li>
                 <li className="flex items-center justify-center">
                   <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                  <span className="text-sm sm:text-base">Ödeme başarılı olursa otomatik olarak yönlendirileceksiniz</span>
+                  <span className="text-sm sm:text-base">If the payment is successful, you will be automatically redirected</span>
                 </li>
                 <li className="flex items-center justify-center">
                   <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                  <span className="text-sm sm:text-base">Dashboard&apos;da abonelik durumunuzu kontrol edin</span>
+                  <span className="text-sm sm:text-base">Check your subscription status in the Dashboard</span>
                 </li>
               </ul>
             </div>
@@ -299,7 +305,7 @@ export default function IframePaymentForm() {
             onClick={() => setShowIframe(false)}
             className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl transition-all duration-200 font-semibold text-base sm:text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1"
           >
-            ← Geri Dön
+            ← Back
           </button>
         </div>
       </div>
@@ -307,82 +313,87 @@ export default function IframePaymentForm() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-xl p-8">
-      <div className="text-center mb-8">
-        <div className="flex items-center justify-center mb-6">
-          <div className="bg-blue-100 p-3 rounded-full mr-4">
-            <CreditCard className="h-12 w-12 text-blue-600" />
-          </div>
-          <div className="bg-green-100 p-2 rounded-full">
-            <Shield className="h-8 w-8 text-green-600" />
-          </div>
+    <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-slate-900 via-gray-900 to-slate-800 px-8 py-12 text-center">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-white/10 backdrop-blur-sm rounded-2xl mb-6">
+          <CreditCard className="h-8 w-8 text-white" />
         </div>
-        <h3 className="text-3xl font-bold text-gray-900 mb-3">Premium Abonelik</h3>
-        <p className="text-lg text-gray-600 mb-4">Tüm tool&apos;lara sınırsız erişim</p>
-        <div className="inline-block bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm px-4 py-2 rounded-full font-medium">
-          🆕 Yeni iFrame Ödeme Sistemi
-        </div>
+          <h3 className="text-3xl font-bold text-white mb-3">Premium Subscription</h3>
+        <p className="text-gray-300 text-lg">Unlimited access to all tools</p>
       </div>
 
-      {/* Abonelik Plan Seçimi */}
-      <div className="mb-8">
-        <label className="block text-lg font-semibold text-gray-900 mb-4">
-          Abonelik Planı Seçin
-        </label>
-        <div className="space-y-4">
-          {subscriptionPlans.map((plan) => (
-            <div
-              key={plan.id}
-              className={`border-2 rounded-xl p-4 cursor-pointer transition-all duration-200 hover:shadow-lg ${
-                selectedPlan?.id === plan.id
-                  ? 'border-blue-500 bg-blue-50 shadow-lg scale-105'
-                  : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
-              }`}
-              onClick={() => setSelectedPlan(plan)}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-semibold text-gray-900 text-lg">{plan.name}</h4>
-                  <p className="text-gray-600">{plan.duration} gün</p>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {plan.price} {plan.currency}
+      <div className="p-8">
+
+      {/* Subscription Plan Selection - Only show if plan is not selected via prop */}
+      {!propSelectedPlan && (
+        <div className="mb-10">
+          <h4 className="text-xl font-semibold text-gray-900 mb-6 text-center">Select Plan</h4>
+          <div className="space-y-3">
+            {subscriptionPlans.map((plan) => (
+              <div
+                key={plan.id}
+                className={`border rounded-xl p-5 cursor-pointer transition-all duration-200 ${
+                  selectedPlan?.id === plan.id
+                    ? 'border-slate-900 bg-slate-50 shadow-md'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+                onClick={() => setSelectedPlan(plan)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className={`w-4 h-4 rounded-full border-2 ${
+                      selectedPlan?.id === plan.id 
+                        ? 'border-slate-900 bg-slate-900' 
+                        : 'border-gray-300'
+                    }`}>
+                      {selectedPlan?.id === plan.id && (
+                        <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-gray-900">{plan.name}</h4>
+                      <p className="text-sm text-gray-500">{plan.duration} days</p>
+                    </div>
                   </div>
-                  <div className="text-sm text-gray-500 font-medium">
-                    Abonelik
+                  <div className="text-right">
+                    <div className="text-xl font-bold text-slate-900">
+                      {plan.price} {plan.currency}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Seçilen Plan Detayları */}
       {selectedPlan && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-8 border-2 border-blue-200">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-lg font-semibold text-gray-700">Seçilen Plan:</span>
-            <span className="text-3xl font-bold text-blue-600">
-              {selectedPlan.price} {selectedPlan.currency}
-            </span>
-          </div>
-          <div className="text-sm text-blue-600 font-medium">
-            {selectedPlan.duration} gün • {selectedPlan.name}
+        <div className="bg-slate-50 rounded-xl p-6 mb-8 border border-slate-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-semibold text-gray-900">{selectedPlan.name}</h4>
+              <p className="text-sm text-gray-500">{selectedPlan.duration} days subscription</p>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-slate-900">
+                {selectedPlan.price} {selectedPlan.currency}
+              </div>
+            </div>
           </div>
         </div>
       )}
 
       {/* Plan Özellikleri */}
       {selectedPlan && selectedPlan.features && selectedPlan.features.length > 0 && (
-        <div className="space-y-4 mb-8">
-          <h4 className="font-semibold text-gray-900 text-lg">Plan Özellikleri:</h4>
-          <div className="grid gap-3">
+        <div className="mb-8">
+          <h4 className="font-semibold text-gray-900 mb-4">Features</h4>
+          <div className="space-y-2">
             {selectedPlan.features.map((feature, index) => (
-              <div key={index} className="flex items-center bg-gray-50 p-3 rounded-lg">
-                <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0" />
-                <span className="text-gray-700">{feature}</span>
+              <div key={index} className="flex items-center text-sm text-gray-600">
+                <div className="w-1.5 h-1.5 bg-slate-400 rounded-full mr-3"></div>
+                <span>{feature}</span>
               </div>
             ))}
           </div>
@@ -391,17 +402,17 @@ export default function IframePaymentForm() {
 
       {/* Tool Erişimleri */}
       {selectedPlan && selectedPlan.permissions && selectedPlan.permissions.length > 0 && (
-        <div className="space-y-4 mb-8">
-          <h4 className="font-semibold text-gray-900 text-lg">Tool Erişimleri:</h4>
-          <div className="grid gap-3">
+        <div className="mb-8">
+          <h4 className="font-semibold text-gray-900 mb-4">Access Permissions</h4>
+          <div className="space-y-2">
             {selectedPlan.permissions.map((permId: string) => {
-              const permName = permId === 'question-generator' ? 'Soru Üretici' :
-                             permId === 'writing-evaluator' ? 'Yazı Değerlendirici' :
-                             permId === 'text-question-analysis' ? 'Metin Analizi' : permId;
+              const permName = permId === 'question-generator' ? 'Question Generator' :
+                             permId === 'writing-evaluator' ? 'Writing Evaluator' :
+                             permId === 'text-question-analysis' ? 'Text Analysis' : permId;
               return (
-                <div key={permId} className="flex items-center bg-green-50 p-3 rounded-lg border border-green-200">
-                  <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0" />
-                  <span className="text-gray-700 font-medium">{permName}</span>
+                <div key={permId} className="flex items-center text-sm text-gray-600">
+                  <div className="w-1.5 h-1.5 bg-slate-400 rounded-full mr-3"></div>
+                  <span>{permName}</span>
                 </div>
               );
             })}
@@ -412,30 +423,30 @@ export default function IframePaymentForm() {
       {/* Ad ve Soyad */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
         <div>
-          <label htmlFor="userFirstName" className="block text-lg font-semibold text-gray-900 mb-4">
-            Ad <span className="text-red-500">*</span>
+          <label htmlFor="userFirstName" className="block text-sm font-medium text-gray-700 mb-2">
+            First Name <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
             id="userFirstName"
             value={userFirstName}
             onChange={(e) => setUserFirstName(e.target.value)}
-            placeholder="Adınız"
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-lg focus:border-blue-500 focus:outline-none transition-colors duration-200"
+            placeholder="Your first name"
+            className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:border-slate-900 focus:outline-none transition-colors duration-200"
             required
           />
         </div>
         <div>
-          <label htmlFor="userLastName" className="block text-lg font-semibold text-gray-900 mb-4">
-            Soyad <span className="text-red-500">*</span>
+          <label htmlFor="userLastName" className="block text-sm font-medium text-gray-700 mb-2">
+            Last Name <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
             id="userLastName"
             value={userLastName}
             onChange={(e) => setUserLastName(e.target.value)}
-            placeholder="Soyadınız"
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-lg focus:border-blue-500 focus:outline-none transition-colors duration-200"
+            placeholder="Your last name"
+            className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:border-slate-900 focus:outline-none transition-colors duration-200"
             required
           />
         </div>
@@ -443,58 +454,56 @@ export default function IframePaymentForm() {
 
       {/* Adres */}
       <div className="mb-8">
-        <label htmlFor="userAddress" className="block text-lg font-semibold text-gray-900 mb-4">
-          Adres <span className="text-gray-500">(Opsiyonel)</span>
+        <label htmlFor="userAddress" className="block text-sm font-medium text-gray-700 mb-2">
+          Address <span className="text-gray-500">(Optional)</span>
         </label>
         <textarea
           id="userAddress"
           value={userAddress}
           onChange={(e) => setUserAddress(e.target.value)}
-          placeholder="Adresinizi giriniz (en az 10 karakter)"
+          placeholder="Enter your address (minimum 10 characters)"
           rows={3}
-          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-lg focus:border-blue-500 focus:outline-none transition-colors duration-200 resize-none"
+          className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:border-slate-900 focus:outline-none transition-colors duration-200 resize-none"
         />
-        <div className="mt-2 text-sm text-gray-600">
-          💡 Adres alanı opsiyoneldir ama doldurulursa en az 10 karakter olmalıdır.
+        <div className="mt-2 text-xs text-gray-500">
+          Address field is optional but must be at least 10 characters if filled.
         </div>
       </div>
 
       {/* Telefon Numarası - PayTR için Zorunlu */}
       <div className="mb-8">
-        <label htmlFor="userPhone" className="block text-lg font-semibold text-gray-900 mb-4">
-          Telefon Numarası <span className="text-red-500">*</span>
+        <label htmlFor="userPhone" className="block text-sm font-medium text-gray-700 mb-2">
+          Phone Number <span className="text-red-500">*</span>
         </label>
-        <div className="relative">
-          <input
-            type="tel"
-            id="userPhone"
-            value={userPhone}
-            onChange={(e) => setUserPhone(e.target.value)}
-            placeholder="5XX XXX XX XX"
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-lg focus:border-blue-500 focus:outline-none transition-colors duration-200"
-            required
-          />
-          <div className="mt-2 text-sm text-gray-600">
-            💡 PayTR için zorunlu alan. En az 10 haneli olmalıdır.
-          </div>
+        <input
+          type="tel"
+          id="userPhone"
+          value={userPhone}
+          onChange={(e) => setUserPhone(e.target.value)}
+          placeholder="5XX XXX XX XX"
+          className="w-full text-black px-4 py-3 border border-gray-300 rounded-lg focus:border-slate-900 focus:outline-none transition-colors duration-200"
+          required
+        />
+        <div className="mt-2 text-xs text-gray-500">
+          Required field for PayTR. Must be at least 10 digits.
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
           <div className="flex items-center">
-            <AlertCircle className="h-5 w-5 text-red-500 mr-3 flex-shrink-0" />
-            <span className="text-red-700 font-medium">{error}</span>
+            <AlertCircle className="h-4 w-4 text-red-500 mr-3 flex-shrink-0" />
+            <span className="text-red-700 text-sm">{error}</span>
           </div>
         </div>
       )}
 
       {success && (
-        <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 mb-6">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
           <div className="flex items-center">
-            <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0" />
-            <span className="text-green-700 font-medium">
-              iFrame ödeme formu başarıyla oluşturuldu!
+            <CheckCircle className="h-4 w-4 text-green-500 mr-3 flex-shrink-0" />
+            <span className="text-green-700 text-sm">
+              iFrame payment form created successfully!
             </span>
           </div>
         </div>
@@ -503,38 +512,41 @@ export default function IframePaymentForm() {
       <button 
         onClick={handlePayment} 
         disabled={loading || success || !selectedPlan}
-        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-200 flex items-center justify-center text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:transform-none disabled:shadow-none"
+        className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-gray-400 text-white font-medium py-4 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center text-base disabled:cursor-not-allowed"
       >
         {loading ? (
           <>
-            <Loader2 className="h-6 w-6 mr-3 animate-spin" />
-            İşleniyor...
+            <Loader2 className="h-5 w-5 mr-3 animate-spin" />
+            Processing...
           </>
         ) : success ? (
           <>
-            <CheckCircle className="h-6 w-6 mr-3" />
-            Ödeme Formu Hazır
+            <CheckCircle className="h-5 w-5 mr-3" />
+            Payment Form Ready
           </>
         ) : !selectedPlan ? (
           <>
-            <AlertCircle className="h-6 w-6 mr-3" />
-            Plan Seçin
+            <AlertCircle className="h-5 w-5 mr-3" />
+            Select Plan
           </>
         ) : (
           <>
-            <Monitor className="h-6 w-6 mr-3" />
-            iFrame ile Öde
+            <Monitor className="h-5 w-5 mr-3" />
+            Make Payment
           </>
         )}
       </button>
 
-      <div className="text-sm text-gray-500 text-center mt-6 space-y-2">
-        <div className="font-medium">Güvenli ödeme ile korunmaktadır.</div>
-        <div>PayTR iFrame API altyapısı kullanılmaktadır.</div>
-        <div className="flex items-center justify-center mt-3">
-          <Shield className="h-5 w-5 text-green-500 mr-2" />
-          <span className="font-medium text-green-600">SSL Şifreli Bağlantı</span>
+      <div className="text-xs text-gray-400 text-center mt-8 pt-6 border-t border-gray-100">
+        <div className="flex items-center justify-center space-x-4">
+          <div className="flex items-center">
+            <Shield className="h-4 w-4 text-gray-400 mr-1" />
+            <span>SSL Encrypted</span>
+          </div>
+          <div className="w-1 h-1 bg-gray-300 rounded-full"></div>
+          <div>PayTR Secure Payment</div>
         </div>
+      </div>
       </div>
     </div>
   );

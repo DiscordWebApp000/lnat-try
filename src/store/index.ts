@@ -3,6 +3,7 @@ import authReducer from './slices/authSlice';
 import examResultsReducer from './slices/examResultsSlice';
 import permissionsReducer from './slices/permissionsSlice';
 import subscriptionReducer from './slices/subscriptionSlice';
+import subscriptionPlansReducer from './slices/subscriptionPlansSlice';
 import supportReducer from './slices/supportSlice';
 
 export const store = configureStore({
@@ -11,6 +12,7 @@ export const store = configureStore({
     examResults: examResultsReducer,
     permissions: permissionsReducer,
     subscription: subscriptionReducer,
+    subscriptionPlans: subscriptionPlansReducer,
     support: supportReducer,
   },
   middleware: (getDefaultMiddleware) =>

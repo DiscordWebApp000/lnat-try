@@ -2,18 +2,18 @@
 
 import { useState, useCallback,  } from 'react';
 import { Question, EvaluationResult, geminiAI } from '@/lib/gemini-ai';
-import QuestionDisplay from '@/components/QuestionDisplay';
-import EvaluationResults from '@/components/EvaluationResults';
-import TextQuestionsInput from '@/components/TextQuestionsInput';
+import QuestionDisplay from '@/components/ui/QuestionDisplay';
+import EvaluationResults from '@/components/ui/EvaluationResults';
+import TextQuestionsInput from '@/components/forms/TextQuestionsInput';
 import { Brain, AlertCircle, RefreshCw, Flag, CheckCircle, XCircle, List, Lock, Shield } from 'lucide-react';
 import { PulseLoader, RingLoader } from 'react-spinners';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppDispatch } from '@/store/hooks';
 import { saveExamResult } from '@/store/slices/examResultsSlice';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import { ToolAccessGuard } from '@/components/ToolAccessGuard';
+import Navbar from '@/components/ui/Navbar';
+import Footer from '@/components/ui/Footer';
+import { ToolAccessGuard } from '@/components/ui/ToolAccessGuard';
 
 type AppState = 'input' | 'questions' | 'review' | 'evaluation' | 'summary' | 'error';
 

@@ -5,9 +5,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Brain, BookOpen, FileText, ArrowRight, Star, Zap, Users, Target, PenTool, Lock } from 'lucide-react';
-import PermissionModal from '@/components/PermissionModal';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import PermissionModal from '@/components/forms/PermissionModal';
+import Navbar from '@/components/ui/Navbar';
+import Footer from '@/components/ui/Footer';
 
 export default function Home() {
   const { currentUser,  hasPermission } = useAuth();

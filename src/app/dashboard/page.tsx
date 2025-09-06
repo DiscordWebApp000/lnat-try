@@ -7,9 +7,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchUserExamResults, deleteExamResult } from '@/store/slices/examResultsSlice';
 import { fetchUserSubscription } from '@/store/slices/subscriptionSlice';
-import Navbar from '@/components/Navbar';
-import ProfileEditModal from '@/components/ProfileEditModal';
-import FloatingSupportButton from '@/components/FloatingSupportButton';
+import Navbar from '@/components/ui/Navbar';
+import ProfileEditModal from '@/components/forms/ProfileEditModal';
+import FloatingSupportButton from '@/components/support/FloatingSupportButton';
 
 
 import { 
