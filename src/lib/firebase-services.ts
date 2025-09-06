@@ -1300,34 +1300,61 @@ export const subscriptionService = {
           permissions = ['question-generator', 'writing-evaluator', 'text-question-analysis'];
           source = 'trial';
         } else {
-          // Check admin permissions
+          // Check admin permissions ONLY from userPermissions collection
           const explicitPermissions = await permissionService.getUserPermissions(user.uid);
+          
+          // Debug log removed for production
+          
           if (explicitPermissions.length > 0) {
             permissions = explicitPermissions;
             source = 'admin';
+            // Debug log removed for production
           } else {
             permissions = [];
             source = 'none';
+            // Debug log removed for production
           }
         }
         
-        // Save to user document
-        await updateDoc(doc(db, 'users', user.uid), {
-          permissionStatus: {
-            permissions,
-            source,
-            trialActive,
-            subscriptionActive,
-            lastChecked: Timestamp.now()
-          }
-        });
+        // Debug log removed for production
         
-        console.log(`✅ Permission status saved for user ${user.email}:`, {
-          permissions,
-          source,
-          trialActive,
-          subscriptionActive
-        });
+        // If user has no trial, no subscription, and no explicit permissions, clean up
+        if (source === 'none' && permissions.length === 0) {
+          // Cleanup started
+          
+          // Remove ALL permissions from user document
+          await updateDoc(doc(db, 'users', user.uid), {
+            permissions: [],
+            subscriptionPermissions: [],
+            subscription: null,
+            trialEndsAt: null,
+            permissionStatus: {
+              permissions: [],
+              source: 'none',
+              trialActive: false,
+              subscriptionActive: false,
+              lastChecked: Timestamp.now()
+            }
+          });
+          
+          // Also revoke all userPermissions collection entries
+          await this.revokeAllUserPermissions(user.uid);
+          
+          console.log(`✅ Cleaned up user ${user.email}`);
+        } else {
+          // Save to user document
+          await updateDoc(doc(db, 'users', user.uid), {
+            permissionStatus: {
+              permissions,
+              source,
+              trialActive,
+              subscriptionActive,
+              lastChecked: Timestamp.now()
+            }
+          });
+          
+          // Permission status saved
+        }
       }
       
       console.log('✅ Permission status saved to database for all users');

@@ -2,6 +2,9 @@ import { User } from '@/types/user';
 import { permissionService } from './firebase-services';
 
 export interface UserPermissionInfo {
+  userId: string;
+  email: string;
+  name: string;
   hasPermission: boolean;
   source: 'admin' | 'trial' | 'subscription' | 'none';
   permissions: string[];
@@ -22,12 +25,15 @@ class PermissionManager {
   }
 
   async getUserPermissionInfo(user: User): Promise<UserPermissionInfo> {
-    console.log('🔍 PermissionManager: Getting permission info for user:', user.email);
+    // Getting permission info for user
     
     // Admin users have all permissions
     if (user.role === 'admin') {
-      console.log('🔍 PermissionManager: User is admin, granting all permissions');
+      // Admin user - granting all permissions
       return {
+        userId: user.uid,
+        email: user.email,
+        name: user.firstName + ' ' + user.lastName,
         hasPermission: true,
         source: 'admin',
         permissions: ['all'],
@@ -36,6 +42,23 @@ class PermissionManager {
       };
     }
 
+    // Use cached permissionStatus if available
+    if (user.permissionStatus) {
+      // Using cached permissionStatus
+      
+      return {
+        userId: user.uid,
+        email: user.email,
+        name: user.firstName + ' ' + user.lastName,
+        hasPermission: (user.permissionStatus.permissions || []).length > 0,
+        permissions: user.permissionStatus.permissions || [],
+        source: user.permissionStatus.source || 'none',
+        trialActive: user.permissionStatus.trialActive || false,
+        subscriptionActive: user.permissionStatus.subscriptionActive || false
+      };
+    }
+
+    // Fallback to real-time calculation if no cached data
     const now = new Date();
     let trialActive = false;
     let subscriptionActive = false;
@@ -127,6 +150,9 @@ class PermissionManager {
     });
 
     return {
+      userId: user.uid,
+      email: user.email,
+      name: user.firstName + ' ' + user.lastName,
       hasPermission,
       source,
       permissions,
@@ -154,6 +180,9 @@ class PermissionManager {
       } catch (error) {
         console.error(`Error getting permission info for user ${user.email}:`, error);
         results[user.uid] = {
+          userId: user.uid,
+          email: user.email,
+          name: user.firstName + ' ' + user.lastName,
           hasPermission: false,
           source: 'none',
           permissions: [],

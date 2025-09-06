@@ -121,6 +121,13 @@ export interface Subscription {
   nextPaymentDate?: Date;
   permissions: string[]; // Bu subscription'da verilen tool permission'ları
   paymentHistory: SubscriptionPayment[]; // Ödeme geçmişi
+  // Plan detayları
+  planDisplayName?: string;
+  planDescription?: string;
+  planPrice?: number;
+  planCurrency?: 'TRY' | 'USD' | 'EUR';
+  planFeatures?: string[];
+  planMaxUsage?: number;
   // Trial süresi eklendi bilgisi
   trialDaysAdded?: number; // Eklenen trial gün sayısı
   originalPlanDuration?: number; // Orijinal plan süresi

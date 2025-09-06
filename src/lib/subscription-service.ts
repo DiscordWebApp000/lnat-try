@@ -92,6 +92,9 @@ export class SubscriptionService {
   ): Promise<void> {
     try {
       console.log('🔍 SubscriptionService: Plan aranıyor:', { planId, userId });
+      console.log('🔍 Plan ID type:', typeof planId);
+      console.log('🔍 Plan ID value:', planId);
+      console.log('🔍 Plan ID length:', planId.length);
       
       // Plan bilgisini al - document ID'ye göre direkt arama
       const planDocRef = doc(db, 'subscriptionPlans', planId);
@@ -112,14 +115,46 @@ export class SubscriptionService {
         updatedAt: planData.updatedAt?.toDate ? planData.updatedAt.toDate() : planData.updatedAt
       } as SubscriptionPlan;
       
-      // Kalan trial süresini hesapla
-      const remainingTrialDays = await this.getRemainingTrialTime(userId);
-      console.log('🔍 Remaining trial days to add:', remainingTrialDays);
+      console.log('🔍 Plan details for subscription:', {
+        id: plan.id,
+        name: plan.name,
+        displayName: plan.displayName,
+        description: plan.description,
+        price: plan.price,
+        currency: plan.currency,
+        duration: plan.duration,
+        features: plan.features,
+        maxUsage: plan.maxUsage
+      });
       
-      // Subscription oluştur - trial süresini de ekle
+      console.log('🔍 Raw plan data from Firestore:', planData);
+      
+      // Plan data'sında eksik field'ları kontrol et
+      if (!plan.displayName) {
+        console.warn('⚠️ Plan displayName eksik, name kullanılıyor');
+        plan.displayName = plan.name;
+      }
+      if (!plan.description) {
+        console.warn('⚠️ Plan description eksik, boş string kullanılıyor');
+        plan.description = '';
+      }
+      if (!plan.features) {
+        console.warn('⚠️ Plan features eksik, boş array kullanılıyor');
+        plan.features = [];
+      }
+      if (plan.maxUsage === undefined) {
+        console.warn('⚠️ Plan maxUsage eksik, 0 kullanılıyor');
+        plan.maxUsage = 0;
+      }
+      
+      // Kalan trial süresini hesapla (sadece bilgi için)
+      const remainingTrialDays = await this.getRemainingTrialTime(userId);
+      console.log('🔍 Remaining trial days (will be removed):', remainingTrialDays);
+      
+      // Subscription oluştur - sadece plan süresini kullan
       const subscriptionId = `sub_${userId}_${Date.now()}`;
       const now = new Date();
-      const totalDuration = plan.duration + remainingTrialDays; // Plan süresi + kalan trial süresi
+      const totalDuration = plan.duration; // Sadece plan süresi
       const endDate = new Date(now.getTime() + (totalDuration * 24 * 60 * 60 * 1000));
       
       console.log('🔍 Subscription duration calculation:', {
@@ -143,8 +178,14 @@ export class SubscriptionService {
         paymentHistory: [],
         lastPaymentDate: now,
         nextPaymentDate: endDate,
-        // Trial süresi eklendi bilgisi
-        trialDaysAdded: remainingTrialDays,
+        // Plan detayları
+        planDisplayName: plan.displayName,
+        planDescription: plan.description,
+        planPrice: plan.price,
+        planCurrency: plan.currency,
+        planFeatures: plan.features,
+        planMaxUsage: plan.maxUsage,
+        // Plan süresi bilgisi (trial kaldırıldı)
         originalPlanDuration: plan.duration,
         totalDuration: totalDuration
       };
@@ -176,8 +217,7 @@ export class SubscriptionService {
         endDate: Timestamp.fromDate(subscription.endDate),
         lastPaymentDate: Timestamp.fromDate(subscription.lastPaymentDate!),
         nextPaymentDate: Timestamp.fromDate(subscription.nextPaymentDate!),
-        // Trial süresi eklendi bilgisi - bu field'ları da kaydet
-        trialDaysAdded: subscription.trialDaysAdded,
+        // Plan süresi bilgisi (trial kaldırıldı)
         originalPlanDuration: subscription.originalPlanDuration,
         totalDuration: subscription.totalDuration
       });
@@ -218,13 +258,27 @@ export class SubscriptionService {
         startDate: Timestamp.fromDate(subscription.startDate),
         endDate: Timestamp.fromDate(subscription.endDate),
         autoRenew: subscription.autoRenew,
-        permissions: subscription.permissions
+        permissions: subscription.permissions,
+        // Plan detaylarını da ekle - subscription'dan gelen gerçek değerleri kullan
+        planDetails: {
+          displayName: subscription.planDisplayName,
+          description: subscription.planDescription,
+          price: subscription.planPrice,
+          currency: subscription.planCurrency,
+          duration: subscription.originalPlanDuration,
+          features: subscription.planFeatures,
+          maxUsage: subscription.planMaxUsage
+        },
+        // Plan süresi bilgisi (trial kaldırıldı)
+        originalPlanDuration: subscription.originalPlanDuration,
+        totalDuration: subscription.totalDuration
       };
       
       console.log('👤 SubscriptionService: User güncelleniyor:', { 
         userId, 
         subscriptionId: subscription.id,
-        subscriptionData 
+        subscriptionData,
+        planDetails: subscriptionData.planDetails
       });
       
       await updateDoc(userDoc, {
