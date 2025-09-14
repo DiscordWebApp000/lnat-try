@@ -117,19 +117,23 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Eksik bilgiler' }, { status: 400 });
     }
 
-    // Sadece admin tarafından değiştirilebilir alanlar
-    const allowedUpdates = {
-      displayName: updates.displayName,
-      price: updates.price,
-      currency: updates.currency,
-      duration: updates.duration,
-      features: updates.features,
-      maxUsage: updates.maxUsage,
-      isActive: updates.isActive,
-      isDefault: updates.isDefault,
+    // Sadece admin tarafından değiştirilebilir alanlar (undefined olanları filtrele)
+    const allowedUpdates: any = {
       updatedAt: new Date(),
       updatedBy: 'admin' // TODO: Gerçek admin UID
     };
+    
+    // Sadece tanımlı değerleri ekle
+    if (updates.displayName !== undefined) allowedUpdates.displayName = updates.displayName;
+    if (updates.price !== undefined) allowedUpdates.price = updates.price;
+    if (updates.currency !== undefined) allowedUpdates.currency = updates.currency;
+    if (updates.duration !== undefined) allowedUpdates.duration = updates.duration;
+    if (updates.features !== undefined) allowedUpdates.features = updates.features;
+    if (updates.maxUsage !== undefined) allowedUpdates.maxUsage = updates.maxUsage;
+    if (updates.isActive !== undefined) allowedUpdates.isActive = updates.isActive;
+    if (updates.isDefault !== undefined) allowedUpdates.isDefault = updates.isDefault;
+    if (updates.permissions !== undefined) allowedUpdates.permissions = updates.permissions;
+    if (updates.description !== undefined) allowedUpdates.description = updates.description;
 
     // Eğer plan default yapılıyorsa, diğerlerini default yapma
     if (updates.isDefault) {
@@ -154,7 +158,10 @@ export async function PUT(request: NextRequest) {
     });
   } catch (error) {
     console.error('Admin subscription plan update error:', error);
-    return NextResponse.json({ error: 'Abonelik planı güncellenemedi' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Abonelik planı güncellenemedi',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }
 

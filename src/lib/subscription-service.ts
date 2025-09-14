@@ -79,90 +79,115 @@ export class SubscriptionService {
     }
   }
 
-  // Kullanıcıya abonelik planını aktif et
+  // Kullanıcıya abonelik planını aktif et - BASIT VE SADE SİSTEM
   async activateSubscription(
     userId: string, 
     planId: string, 
     paymentData: {
       paymentId: string;
-      linkId: string; // iFrame'de merchant_oid kullanılıyor
+      linkId: string;
       amount: number;
       currency: string;
     }
   ): Promise<void> {
     try {
-      console.log('🔍 SubscriptionService: Plan aranıyor:', { planId, userId });
-      console.log('🔍 Plan ID type:', typeof planId);
-      console.log('🔍 Plan ID value:', planId);
-      console.log('🔍 Plan ID length:', planId.length);
+      console.log('🔥 SIMPLE ACTIVATION: Starting activation for user:', userId);
       
-      // Plan bilgisini al - document ID'ye göre direkt arama
-      const planDocRef = doc(db, 'subscriptionPlans', planId);
-      const planDoc = await getDoc(planDocRef);
+      // 1. Pending payment'ı al
+      const pendingPaymentDoc = await getDoc(doc(db, 'pendingPayments', userId));
       
-      if (!planDoc.exists()) {
-        console.error('❌ SubscriptionService: Plan bulunamadı:', planId);
-        throw new Error(`Plan bulunamadı: ${planId}`);
+      if (!pendingPaymentDoc.exists()) {
+        throw new Error('❌ Pending payment bulunamadı!');
       }
       
-      console.log('✅ SubscriptionService: Plan bulundu:', planDoc.data());
+      const pendingData = pendingPaymentDoc.data();
+      console.log('🎯 SIMPLE: Pending data:', pendingData);
       
-      const planData = planDoc.data();
-      const plan: SubscriptionPlan = {
-        ...planData,
-        id: planDoc.id, // Document ID'yi kullan
-        createdAt: planData.createdAt?.toDate ? planData.createdAt.toDate() : planData.createdAt,
-        updatedAt: planData.updatedAt?.toDate ? planData.updatedAt.toDate() : planData.updatedAt
-      } as SubscriptionPlan;
+      // 2. Plan bilgilerini pending'den al
+      const actualPlanId = pendingData.planId;
+      const planType = pendingData.planType;
+      const planAmount = pendingData.amount;
       
-      console.log('🔍 Plan details for subscription:', {
-        id: plan.id,
-        name: plan.name,
-        displayName: plan.displayName,
-        description: plan.description,
-        price: plan.price,
-        currency: plan.currency,
-        duration: plan.duration,
-        features: plan.features,
-        maxUsage: plan.maxUsage
+      console.log('🔥 SIMPLE: Using plan from pending:', {
+        planId: actualPlanId,
+        planType: planType,
+        amount: planAmount
       });
       
-      console.log('🔍 Raw plan data from Firestore:', planData);
+      // 3. Plan document'ini al
+      console.log('🔍 SIMPLE: Searching for plan document:', {
+        collection: 'subscriptionPlans',
+        documentId: actualPlanId,
+        fullPath: `subscriptionPlans/${actualPlanId}`
+      });
       
-      // Plan data'sında eksik field'ları kontrol et
-      if (!plan.displayName) {
-        console.warn('⚠️ Plan displayName eksik, name kullanılıyor');
-        plan.displayName = plan.name;
-      }
-      if (!plan.description) {
-        console.warn('⚠️ Plan description eksik, boş string kullanılıyor');
-        plan.description = '';
-      }
-      if (!plan.features) {
-        console.warn('⚠️ Plan features eksik, boş array kullanılıyor');
-        plan.features = [];
-      }
-      if (plan.maxUsage === undefined) {
-        console.warn('⚠️ Plan maxUsage eksik, 0 kullanılıyor');
-        plan.maxUsage = 0;
+      const planDoc = await getDoc(doc(db, 'subscriptionPlans', actualPlanId));
+      
+      console.log('🔍 SIMPLE: Plan document query result:', {
+        exists: planDoc.exists(),
+        id: planDoc.id,
+        hasData: !!planDoc.data()
+      });
+      
+      if (!planDoc.exists()) {
+        console.error('❌ SIMPLE: Plan document bulunamadı! Firestore da mevcut planları kontrol edin');
+        
+        // Tüm planları listele
+        console.log('🔍 SIMPLE: Listing all available plans...');
+        const allPlansSnapshot = await getDocs(collection(db, 'subscriptionPlans'));
+        
+        console.log('📋 SIMPLE: Available plans in Firestore:');
+        allPlansSnapshot.forEach(doc => {
+          const data = doc.data();
+          console.log(`  - ID: ${doc.id}, Name: ${data.name}, DisplayName: ${data.displayName}`);
+        });
+        
+        throw new Error(`❌ Plan document bulunamadı: ${actualPlanId}`);
       }
       
-      // Kalan trial süresini hesapla (sadece bilgi için)
-      const remainingTrialDays = await this.getRemainingTrialTime(userId);
-      console.log('🔍 Remaining trial days (will be removed):', remainingTrialDays);
+      const planData = planDoc.data();
+      console.log('✅ SIMPLE: Plan found and loaded:', {
+        documentId: planDoc.id,
+        planData: {
+          name: planData.name,
+          displayName: planData.displayName,
+          price: planData.price,
+          duration: planData.duration,
+          currency: planData.currency
+        }
+      });
       
-      // Subscription oluştur - sadece plan süresini kullan
+      // 4. Plan object'ini oluştur
+      const plan: SubscriptionPlan = {
+        id: planDoc.id,
+        name: planData.name,
+        displayName: planData.displayName,
+        description: planData.description || '',
+        price: planData.price,
+        currency: planData.currency,
+        duration: planData.duration,
+        features: planData.features || [],
+        maxUsage: planData.maxUsage || 0,
+        permissions: planData.permissions || [],
+        isActive: planData.isActive,
+        isDefault: planData.isDefault,
+        createdAt: planData.createdAt?.toDate ? planData.createdAt.toDate() : new Date(),
+        updatedAt: planData.updatedAt?.toDate ? planData.updatedAt.toDate() : new Date(),
+        updatedBy: planData.updatedBy || 'system'
+      };
+      
+      // 5. Subscription oluştur - BASİT
       const subscriptionId = `sub_${userId}_${Date.now()}`;
       const now = new Date();
-      const totalDuration = plan.duration; // Sadece plan süresi
-      const endDate = new Date(now.getTime() + (totalDuration * 24 * 60 * 60 * 1000));
+      const endDate = new Date(now.getTime() + (plan.duration * 24 * 60 * 60 * 1000));
       
-      console.log('🔍 Subscription duration calculation:', {
-        planDuration: plan.duration,
-        remainingTrialDays,
-        totalDuration,
-        startDate: now,
-        endDate
+      console.log('🔥 SIMPLE: Creating subscription with plan:', {
+        subscriptionId,
+        userId,
+        planId: plan.id,
+        planName: plan.name,
+        planDisplayName: plan.displayName,
+        duration: plan.duration
       });
       
       const subscription: Subscription = {
@@ -178,29 +203,27 @@ export class SubscriptionService {
         paymentHistory: [],
         lastPaymentDate: now,
         nextPaymentDate: endDate,
-        // Plan detayları
         planDisplayName: plan.displayName,
         planDescription: plan.description,
         planPrice: plan.price,
         planCurrency: plan.currency,
         planFeatures: plan.features,
         planMaxUsage: plan.maxUsage,
-        // Plan süresi bilgisi (trial kaldırıldı)
         originalPlanDuration: plan.duration,
-        totalDuration: totalDuration
+        totalDuration: plan.duration
       };
       
-      // Payment record oluştur
+      // 6. Payment record oluştur
       const payment: SubscriptionPayment = {
         id: `pay_${Date.now()}`,
         subscriptionId,
         userId,
         planId: plan.id,
-        amount: paymentData.amount,
-        currency: paymentData.currency,
-        paymentMethod: 'paytr-iframe', // iFrame sistemi
+        amount: planAmount, // Pending'den gelen amount
+        currency: 'TRY',
+        paymentMethod: 'paytr-iframe',
         paymentId: paymentData.paymentId,
-        linkId: paymentData.linkId, // merchant_oid
+        linkId: paymentData.linkId,
         status: 'success',
         paymentDate: now,
         planName: plan.name,
@@ -210,17 +233,59 @@ export class SubscriptionService {
         updatedAt: now
       };
       
-      // Firestore'a kaydet
-      await setDoc(doc(db, 'subscriptions', subscriptionId), {
+      console.log('🔥 SIMPLE: CRITICAL - About to save to database:', {
+        'SELECTED PLAN (from pending)': {
+          planId: actualPlanId,
+          planType: planType,
+          amount: planAmount
+        },
+        'PLAN OBJECT (from Firestore)': {
+          id: plan.id,
+          name: plan.name,
+          displayName: plan.displayName,
+          price: plan.price
+        },
+        'SUBSCRIPTION OBJECT (will be saved)': {
+          id: subscription.id,
+          planId: subscription.planId,
+          planName: subscription.planName,
+          planDisplayName: subscription.planDisplayName,
+          planPrice: subscription.planPrice
+        },
+        'PAYMENT OBJECT (will be saved)': {
+          id: payment.id,
+          planId: payment.planId,
+          planName: payment.planName,
+          amount: payment.amount
+        },
+        'DOCUMENT PATH': `subscriptions/${subscriptionId}`,
+        'VERIFICATION': {
+          'pending.planId === plan.id': actualPlanId === plan.id,
+          'plan.id === subscription.planId': plan.id === subscription.planId,
+          'subscription.planId === payment.planId': subscription.planId === payment.planId
+        }
+      });
+      
+      // 7. Firestore'a kaydet
+      console.log('💾 SIMPLE: Writing subscription to Firestore...');
+      const subscriptionDocData = {
         ...subscription,
         startDate: Timestamp.fromDate(subscription.startDate),
         endDate: Timestamp.fromDate(subscription.endDate),
         lastPaymentDate: Timestamp.fromDate(subscription.lastPaymentDate!),
-        nextPaymentDate: Timestamp.fromDate(subscription.nextPaymentDate!),
-        // Plan süresi bilgisi (trial kaldırıldı)
-        originalPlanDuration: subscription.originalPlanDuration,
-        totalDuration: subscription.totalDuration
+        nextPaymentDate: Timestamp.fromDate(subscription.nextPaymentDate!)
+      };
+      
+      console.log('💾 SIMPLE: Final subscription document data:', {
+        id: subscriptionDocData.id,
+        userId: subscriptionDocData.userId,
+        planId: subscriptionDocData.planId,
+        planName: subscriptionDocData.planName,
+        planDisplayName: subscriptionDocData.planDisplayName,
+        planPrice: subscriptionDocData.planPrice
       });
+      
+      await setDoc(doc(db, 'subscriptions', subscriptionId), subscriptionDocData);
       
       await setDoc(doc(db, 'subscriptionPayments', payment.id), {
         ...payment,
@@ -229,11 +294,24 @@ export class SubscriptionService {
         updatedAt: Timestamp.fromDate(payment.updatedAt)
       });
       
-      // User'ı güncelle
-      console.log('👤 SubscriptionService: User güncelleniyor:', { userId, subscriptionId });
+      // 8. User'ı güncelle
       await this.updateUserSubscriptionData(userId, subscription);
       
-      console.log('🎉 SubscriptionService: Subscription başarıyla oluşturuldu!');
+      console.log('🎉 SIMPLE: Subscription başarıyla oluşturuldu!', {
+        subscriptionId,
+        'FINAL SAVED PLAN': {
+          id: plan.id,
+          name: plan.name,
+          displayName: plan.displayName,
+          price: plan.price
+        },
+        'ORIGINAL PENDING PLAN': {
+          id: actualPlanId,
+          type: planType,
+          amount: planAmount
+        },
+        'SUCCESS': plan.id === actualPlanId ? '✅ CORRECT PLAN SAVED' : '❌ WRONG PLAN SAVED'
+      });
       
     } catch (error) {
       console.error('❌ SubscriptionService: Hata:', error);

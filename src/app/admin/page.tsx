@@ -28,6 +28,7 @@ import UserPermissionModal from '@/components/forms/UserPermissionModal';
 import AdminSupportPanel from '@/components/admin/AdminSupportPanel';
 import AdminSubscriptionPanel from '@/components/admin/AdminSubscriptionPanel';
 import AdminSidebar from '@/components/admin/AdminSidebar';
+import Pagination from '@/components/ui/Pagination';
 
 export default function AdminPage() {
   const { currentUser, loading } = useAuth();
@@ -48,6 +49,8 @@ export default function AdminPage() {
   const [isCheckingPermissions, setIsCheckingPermissions] = useState(false);
   const [permissionCheckProgress, setPermissionCheckProgress] = useState(0);
   const [permissionCheckStep, setPermissionCheckStep] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [usersPerPage] = useState(20);
   const router = useRouter();
   
   // Get users from Redux state
@@ -67,9 +70,10 @@ export default function AdminPage() {
           formattedPermissionsMap[user.uid] = ['all'];
           console.log(`🔍 Admin user ${user.email}: all permissions`);
         } else if (user.permissionStatus) {
-          formattedPermissionsMap[user.uid] = user.permissionStatus.permissions;
+          formattedPermissionsMap[user.uid] = user.permissionStatus.permissions || [];
           console.log(`🔍 User ${user.email} (cached):`, {
             permissions: user.permissionStatus.permissions,
+            permissionsCount: user.permissionStatus.permissions?.length || 0,
             source: user.permissionStatus.source,
             trialActive: user.permissionStatus.trialActive,
             subscriptionActive: user.permissionStatus.subscriptionActive,
@@ -84,6 +88,7 @@ export default function AdminPage() {
       
       setUserPermissionsMap(formattedPermissionsMap);
       console.log('✅ Admin data loaded from cache successfully');
+      console.log('🔍 Final permissions map:', formattedPermissionsMap);
     } catch (error) {
       console.error('Error loading admin data:', error);
     }
@@ -326,6 +331,17 @@ export default function AdminPage() {
     return matchesSearch && matchesRole && matchesTrial && matchesLastLogin;
   });
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+  const startIndex = (currentPage - 1) * usersPerPage;
+  const endIndex = startIndex + usersPerPage;
+  const currentUsers = filteredUsers.slice(startIndex, endIndex);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterRole, filterTrial, filterLastLogin, customDays]);
+
   const formatDate = (date: Date | any | undefined) => {
     if (!date) {
       return 'Invalid Date';
@@ -492,95 +508,247 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6 sm:mb-8">
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-            <div className="flex-1">
+        {/* Enhanced Filters - Compact */}
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 mb-4 sm:mb-6">
+          {/* Filter Header - Compact */}
+          <div className="px-4 py-3 border-b border-gray-100">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-gray-700" />
+                <h3 className="text-base font-semibold text-gray-700">Filtreler</h3>
+                <span className="text-xs text-gray-700">({filteredUsers.length} kullanıcı)</span>
+              </div>
+              
+              {/* Clear Filters Button */}
+              {(searchTerm || filterRole !== 'all' || filterTrial !== 'all' || filterLastLogin !== 'all') && (
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setFilterRole('all');
+                    setFilterTrial('all');
+                    setFilterLastLogin('all');
+                    setCustomDays(7);
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-gray-700 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                >
+                  <XCircle className="w-3 h-3" />
+                  Temizle
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Filter Content - Compact */}
+          <div className="p-3 sm:p-4">
+            {/* Search Bar - Compact */}
+            <div className="mb-3">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
-                  placeholder="User search..."
+                  placeholder="İsim, soyisim veya email ile ara..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 sm:pl-10 pr-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base text-black"
+                  className="w-full pl-9 pr-4 py-2 text-black border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm transition-all"
                 />
-              </div>
-            </div>
-            <div className="sm:w-48">
-              <div className="relative">
-                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
-                <select
-                  value={filterRole}
-                  onChange={(e) => setFilterRole(e.target.value as 'all' | 'user' | 'admin')}
-                  className="w-full pl-9 sm:pl-10 pr-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent appearance-none text-sm sm:text-base text-black  "
-                >
-                  <option value="all">Tüm Roller</option>
-                  <option value="user">Kullanıcı</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-            </div>
-            <div className="sm:w-48">
-              <div className="relative">
-                <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:w-5" />
-                <select
-                  value={filterTrial}
-                  onChange={(e) => setFilterTrial(e.target.value as 'all' | 'active' | 'expired' | 'expiring' | 'premium' | 'no-trial')}
-                  className="w-full pl-9 sm:pl-10 pr-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent appearance-none text-sm sm:text-base text-black"
-                >
-                  <option value="all">Tüm Durumlar</option>
-                  <option value="active">Aktif Trial (4+ gün)</option>
-                  <option value="expiring">Yakında Sona Erecek (1-3 gün)</option>
-                  <option value="expired">Süresi Dolmuş</option>
-                  <option value="premium">Premium Abone</option>
-                  <option value="no-trial">Trial Yok</option>
-                </select>
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <XCircle className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             </div>
 
-            <div className="sm:w-48">
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
-                <select
-                  value={filterLastLogin}
-                  onChange={(e) => setFilterLastLogin(e.target.value as 'all' | 'today' | 'week' | 'month' | 'custom')}
-                  className="w-full pl-9 sm:pl-10 pr-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent appearance-none text-sm sm:text-base text-black"
-                >
-                  <option value="all">Tüm Giriş Zamanları</option>
-                  <option value="today">Bugün Giriş Yapan</option>
-                  <option value="week">Son 7 Günde Giriş</option>
-                  <option value="month">Son 30 Günde Giriş</option>
-                  <option value="custom">Özel Gün Sayısı</option>
-                </select>
+            {/* Filter Grid - Compact */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Role Filter */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  <Users className="w-3 h-3 inline mr-1" />
+                  Rol
+                </label>
+                <div className="relative">
+                  <select
+                    value={filterRole}
+                    onChange={(e) => setFilterRole(e.target.value as 'all' | 'user' | 'admin')}
+                    className="w-full px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 appearance-none text-xs bg-white text-black"
+                  >
+                    <option value="all">Tüm Roller</option>
+                    <option value="user">Kullanıcı</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                    <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Trial Status Filter */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  <Clock className="w-3 h-3 inline mr-1" />
+                  Trial Durumu
+                </label>
+                <div className="relative">
+                  <select
+                    value={filterTrial}
+                    onChange={(e) => setFilterTrial(e.target.value as 'all' | 'active' | 'expired' | 'expiring' | 'premium' | 'no-trial')}
+                    className="w-full px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 appearance-none text-xs bg-white text-black"
+                  >
+                    <option value="all">Tüm Durumlar</option>
+                    <option value="active">Aktif Trial (4+ gün)</option>
+                    <option value="expiring">Yakında Sona Erecek (1-3 gün)</option>
+                    <option value="expired">Süresi Dolmuş</option>
+                    <option value="premium">Premium Abone</option>
+                    <option value="no-trial">Trial Yok</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                    <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Last Login Filter */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  <Calendar className="w-3 h-3 inline mr-1" />
+                  Son Giriş
+                </label>
+                <div className="relative">
+                  <select
+                    value={filterLastLogin}
+                    onChange={(e) => setFilterLastLogin(e.target.value as 'all' | 'today' | 'week' | 'month' | 'custom')}
+                    className="w-full px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 appearance-none text-xs bg-white text-black"
+                  >
+                    <option value="all">Tüm Giriş Zamanları</option>
+                    <option value="today">Bugün Giriş Yapan</option>
+                    <option value="week">Son 7 Günde Giriş</option>
+                    <option value="month">Son 30 Günde Giriş</option>
+                    <option value="custom">Özel Gün Sayısı</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                    <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Custom Days Input */}
+              <div>
+                {filterLastLogin === 'custom' ? (
+                  <>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <Clock className="w-3 h-3 inline mr-1" />
+                      Gün Sayısı
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="365"
+                      value={customDays}
+                      onChange={(e) => setCustomDays(parseInt(e.target.value) || 1)}
+                      placeholder="Gün"
+                      className="w-full px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-xs text-black"
+                    />
+                  </>
+                ) : (
+                  <div className="h-full flex items-end">
+                    <div className="w-full h-8 bg-gray-50 rounded-lg flex items-center justify-center">
+                      <span className="text-xs text-gray-400">Özel filtre için Son Giriş seçin</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Custom Days Input */}
-            {filterLastLogin === 'custom' && (
-              <div className="sm:w-32">
-                <input
-                  type="number"
-                  min="1"
-                  max="365"
-                  value={customDays}
-                  onChange={(e) => setCustomDays(parseInt(e.target.value) || 1)}
-                  placeholder="Gün"
-                  className="w-full px-3 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base text-black"
-                />
+            {/* Active Filter Badges - Compact */}
+            {(searchTerm || filterRole !== 'all' || filterTrial !== 'all' || filterLastLogin !== 'all') && (
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-medium text-gray-700">Aktif Filtreler:</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {searchTerm && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                      <Search className="w-3 h-3" />
+                      Arama: {searchTerm}
+                      <button
+                        onClick={() => setSearchTerm('')}
+                        className="ml-1 hover:text-blue-600"
+                      >
+                        <XCircle className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                  {filterRole !== 'all' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                      <Users className="w-3 h-3" />
+                      Rol: {filterRole === 'user' ? 'Kullanıcı' : 'Admin'}
+                      <button
+                        onClick={() => setFilterRole('all')}
+                        className="ml-1 hover:text-green-600"
+                      >
+                        <XCircle className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                  {filterTrial !== 'all' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">
+                      <Clock className="w-3 h-3" />
+                      Durum: {
+                        filterTrial === 'active' ? 'Aktif Trial' :
+                        filterTrial === 'expiring' ? 'Yakında Sona Erecek' :
+                        filterTrial === 'expired' ? 'Süresi Dolmuş' :
+                        filterTrial === 'premium' ? 'Premium Abone' :
+                        'Trial Yok'
+                      }
+                      <button
+                        onClick={() => setFilterTrial('all')}
+                        className="ml-1 hover:text-orange-600"
+                      >
+                        <XCircle className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                  {filterLastLogin !== 'all' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                      <Calendar className="w-3 h-3" />
+                      Giriş: {
+                        filterLastLogin === 'today' ? 'Bugün' :
+                        filterLastLogin === 'week' ? 'Son 7 Gün' :
+                        filterLastLogin === 'month' ? 'Son 30 Gün' :
+                        filterLastLogin === 'custom' ? `Son ${customDays} Gün` :
+                        'Tümü'
+                      }
+                      <button
+                        onClick={() => setFilterLastLogin('all')}
+                        className="ml-1 hover:text-purple-600"
+                      >
+                        <XCircle className="w-3 h-3" />
+                      </button>
+                    </span>
+                  )}
+                </div>
               </div>
             )}
-            
           </div>
         </div>
 
         {/* Users List */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
-            <div className="flex justify-between items-center">
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900">
-                User List ({filteredUsers.length})
-              </h2>
+              <div className="flex justify-between items-center">
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900">
+                  User List ({filteredUsers.length}) - Sayfa {currentPage}/{totalPages}
+                </h2>
               <button
                 onClick={async () => {
                   if (isCheckingPermissions) return;
@@ -710,7 +878,7 @@ export default function AdminPage() {
             </div>
           ) : (
             <div className="divide-y divide-gray-200">
-              {filteredUsers.map((user: User) => (
+              {currentUsers.map((user: User) => (
                 <div 
                   key={user.uid} 
                   className={`p-4 sm:p-6 hover:bg-gray-50 cursor-pointer transition-all group ${
@@ -840,42 +1008,67 @@ export default function AdminPage() {
 
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                            <span className="text-xs sm:text-sm font-medium text-gray-700">
-                              Permissions: {user.role === 'admin' ? 'All' : (userPermissionsMap[user.uid]?.length || 0)}
-                            </span>
-                            <div className="flex flex-wrap gap-1">
-                              {user.role === 'admin' ? (
-                                <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium">
-                                  All Tools
-                                </span>
-                              ) : (
+                            {(() => {
+                              // Get user permissions with fallback logic
+                              let userPermissions: string[] = [];
+                              let permissionCount = 0;
+                              
+                              if (user.role === 'admin') {
+                                permissionCount = -1; // Special case for admin
+                              } else {
+                                // Try to get permissions from userPermissionsMap first
+                                userPermissions = userPermissionsMap[user.uid] || [];
+                                
+                                // Fallback: if userPermissionsMap is empty, try to get from user.permissionStatus
+                                if (userPermissions.length === 0 && user.permissionStatus?.permissions) {
+                                  userPermissions = user.permissionStatus.permissions;
+                                  console.log(`🔍 Fallback: Using permissionStatus for ${user.email}:`, userPermissions);
+                                }
+                                
+                                permissionCount = userPermissions.length;
+                              }
+                              
+                              return (
                                 <>
-                                  {(userPermissionsMap[user.uid] || []).slice(0, 3).map((permissionId: string) => {
-                                    const permission = permissions.find((p: Permission) => p.id === permissionId);
-                                    // If it's a tool name (trial/subscription permission), display it directly
-                                    const displayName = permission?.name || permissionId;
-                                    return (
-                                      <span
-                                        key={permissionId}
-                                        className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs"
-                                      >
-                                        {displayName}
+                                  <span className="text-xs sm:text-sm font-medium text-gray-700">
+                                    Permissions: {user.role === 'admin' ? 'All' : permissionCount}
+                                  </span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {user.role === 'admin' ? (
+                                      <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium">
+                                        All Tools
                                       </span>
-                                    );
-                                  })}
-                                  {(userPermissionsMap[user.uid] || []).length > 3 && (
-                                    <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
-                                      +{(userPermissionsMap[user.uid] || []).length - 3}
-                                    </span>
-                                  )}
-                                  {(userPermissionsMap[user.uid] || []).length === 0 && (
-                                    <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs">
-                                      No permissions
-                                    </span>
-                                  )}
+                                    ) : (
+                                      <>
+                                        {userPermissions.slice(0, 3).map((permissionId: string) => {
+                                          const permission = permissions.find((p: Permission) => p.id === permissionId);
+                                          // If it's a tool name (trial/subscription permission), display it directly
+                                          const displayName = permission?.name || permissionId;
+                                          return (
+                                            <span
+                                              key={permissionId}
+                                              className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs"
+                                            >
+                                              {displayName}
+                                            </span>
+                                          );
+                                        })}
+                                        {userPermissions.length > 3 && (
+                                          <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
+                                            +{userPermissions.length - 3}
+                                          </span>
+                                        )}
+                                        {userPermissions.length === 0 && (
+                                          <span className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs">
+                                            No permissions
+                                          </span>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
                                 </>
-                              )}
-                            </div>
+                              );
+                            })()}
                           </div>
                           <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Edit className="w-4 h-4 text-gray-500" />
@@ -985,6 +1178,15 @@ export default function AdminPage() {
               ))}
             </div>
           )}
+
+          {/* Pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredUsers.length}
+            itemsPerPage={usersPerPage}
+            onPageChange={setCurrentPage}
+          />
               </div>
             </>
           )}

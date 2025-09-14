@@ -4,34 +4,29 @@
 
    ▲ Next.js 15.4.5
    - Local:        http://localhost:3000
-   - Network:      http://192.168.100.41:3000
+   - Network:      http://192.168.137.206:3000
    - Environments: .env.local
 
  ✓ Starting...
- ✓ Ready in 1637ms
- ✓ Compiled /api/paytr-iframe-webhook in 441ms (425 modules)
-🔍 PayTR Config Debug:
-  - MERCHANT_ID: 605613
-  - MERCHANT_KEY: SET
-  - MERCHANT_SALT: TajMrb3xiMd5uy4D
+ ✓ Ready in 1815ms
+ ✓ Compiled /api/payment/create-iframe in 362ms (286 modules)
+✅ PayTR iFrame configuration validated successfully
+🔗 Callback URL: https://lnatt.vercel.app/api/paytr-iframe-webhook
+🌐 App URL: https://lnatt.vercel.app
+🔧 Environment: development
+🎯 Payment Method: iFrame (Token-based)
+🚫 Link API: Removed (Deprecated)
+ POST /api/payment/create-iframe 400 in 448ms
+ ✓ Compiled /api/paytr-iframe-webhook in 353ms (425 modules)
 🔄 PayTR iFrame Webhook başlatıldı
 📡 Request method: POST
 🌐 Request URL: http://localhost:3000/api/paytr-iframe-webhook
-🔍 PayTR Config: {
-  MERCHANT_ID: '605613',
-  MERCHANT_KEY: 'SET',
-  MERCHANT_SALT: 'TajMrb3xiMd5uy4D'
-}
+⏰ Timestamp: 2025-09-14T07:35:09.823Z
 📥 Webhook Data (Form): {
-  merchant_oid: 'test123',
+  merchant_oid: 'orderABC123planJGJ2lTxfxXfCwSO11wQKtypepro17263164000001234',
   status: 'success',
-  total_amount: '5999',
-  hash: 'mVC 6OECA1ZuXu9IIHPGU0AhDu6ZQxt8n4oJ1SsV/Ms='
+  total_amount: '9999',
+  hash: 'dummy',
+  user_basket: 'W1siUExBTl9QUk9fSkdKMmxUeGZ4WGZDd1NPMTF3UUtfQWJvbmVsaWsiLCI5OS45OSIsMV1d'
 }
-🔍 Webhook Hash Debug:
-  - Hash String: test123TajMrb3xiMd5uy4Dsuccess5999
-  - Received Hash: mVC 6OECA1ZuXu9IIHPGU0AhDu6ZQxt8n4oJ1SsV/Ms=
-  - Calculated Hash: QcX6L9emlGpEoH59bjavd0su5lKiTleQBpAh6/glCLM=
-  - Match: false
- POST /api/paytr-iframe-webhook 400 in 674ms
- ✓ Compiled in 128ms (239 modules)
+ POST /api/paytr-iframe-webhook 400 in 529ms

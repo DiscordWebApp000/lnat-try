@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
@@ -12,6 +12,36 @@ function PaymentSuccessContent() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
 
+  const checkPaymentStatus = useCallback(async () => {
+    try {
+      // YENİ SİSTEM: Pending payment varsa onu aktive et
+      console.log('🔍 SUCCESS PAGE: Checking payment status for orderId:', orderId);
+      
+      // Eğer webhook çalışmadıysa manuel aktive et
+      if (orderId) {
+        try {
+          const response = await fetch('/api/manual-activate-subscription', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId })
+          });
+          
+          if (response.ok) {
+            console.log('✅ SUCCESS PAGE: Subscription manually activated');
+          }
+        } catch (manualError) {
+          console.log('⚠️ SUCCESS PAGE: Manual activation failed:', manualError);
+        }
+      }
+      
+      setStatus('success');
+      setMessage('Ödeme başarıyla tamamlandı! Aboneliğiniz aktif edildi.');
+    } catch {
+      setStatus('error');
+      setMessage('Ödeme durumu kontrol edilemedi. Lütfen destek ekibiyle iletişime geçin.');
+    }
+  }, [orderId]);
+
   useEffect(() => {
     // Callback ID veya Order ID varsa webhook durumunu kontrol et
     if (callbackId || orderId) {
@@ -21,18 +51,7 @@ function PaymentSuccessContent() {
       setStatus('success');
       setMessage('Ödeme başarıyla tamamlandı! Aboneliğiniz aktif edildi.');
     }
-  }, [callbackId, orderId]);
-
-  const checkPaymentStatus = async () => {
-    try {
-      // Webhook durumunu kontrol et (opsiyonel)
-      setStatus('success');
-      setMessage('Ödeme başarıyla tamamlandı! Aboneliğiniz aktif edildi.');
-    } catch {
-      setStatus('error');
-      setMessage('Ödeme durumu kontrol edilemedi. Lütfen destek ekibiyle iletişime geçin.');
-    }
-  };
+  }, [callbackId, orderId, checkPaymentStatus]);
 
   if (status === 'loading') {
     return (

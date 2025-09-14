@@ -38,10 +38,13 @@ export default function IframePaymentForm({ selectedPlan: propSelectedPlan }: If
           
           // Eğer prop olarak plan gelmişse onu kullan, yoksa varsayılan planı seç
           if (propSelectedPlan) {
+            console.log('🎯 IFRAME FORM: Using prop selected plan:', propSelectedPlan);
             setSelectedPlan(propSelectedPlan);
           } else if (data.defaultPlan) {
+            console.log('🎯 IFRAME FORM: Using default plan:', data.defaultPlan);
             setSelectedPlan(data.defaultPlan);
           } else if (data.plans && data.plans.length > 0) {
+            console.log('🎯 IFRAME FORM: Using first plan:', data.plans[0]);
             setSelectedPlan(data.plans[0]);
           }
         } else {
@@ -55,6 +58,14 @@ export default function IframePaymentForm({ selectedPlan: propSelectedPlan }: If
     };
 
     fetchSubscriptionPlans();
+  }, [propSelectedPlan]);
+
+  // CRITICAL: Her zaman prop'tan gelen planı kullan
+  useEffect(() => {
+    if (propSelectedPlan) {
+      console.log('🎯 IFRAME FORM: Prop changed, updating selected plan:', propSelectedPlan);
+      setSelectedPlan(propSelectedPlan);
+    }
   }, [propSelectedPlan]);
 
   // Input validation
@@ -112,16 +123,30 @@ export default function IframePaymentForm({ selectedPlan: propSelectedPlan }: If
     setError(null);
     
     try {
+      console.log('🎯 FRONTEND: Creating payment request for plan:', {
+        planId: selectedPlan.id,
+        planName: selectedPlan.name,
+        planDisplayName: selectedPlan.displayName,
+        planPrice: selectedPlan.price,
+        planCurrency: selectedPlan.currency,
+        selectedPlan: selectedPlan
+      });
+      
+      // Plan seçimi debug completed
+      
       const paymentRequest: PaymentRequest = {
         userId: currentUser.uid,
         amount: selectedPlan.price,
         currency: selectedPlan.currency as 'TRY' | 'USD',
         planType: selectedPlan.name, // Gerçek plan adını kullan
+        planId: selectedPlan.id, // Plan ID'sini ekle
         userEmail: currentUser.email,
         userName: `${userFirstName} ${userLastName}`,
         userPhone: userPhone,
         userAddress: userAddress
       };
+      
+      console.log('🎯 FRONTEND: Payment request created:', paymentRequest);
 
       const response = await fetch('/api/payment/create-iframe', {
         method: 'POST',

@@ -12,8 +12,16 @@ export class PaytrIframeService {
         throw new Error('PayTR configuration is incomplete. Check environment variables.');
       }
 
-      // Benzersiz sipariş numarası oluştur
-      const merchantOid = this.generateMerchantOid(paymentRequest.userId);
+      // Benzersiz sipariş numarası oluştur (plan ID ile)
+      const merchantOid = this.generateMerchantOid(paymentRequest.userId, paymentRequest.planId);
+      
+      console.log('🔍 PayTR SERVICE: Creating payment for plan:', {
+        planType: paymentRequest.planType,
+        planId: paymentRequest.planId,
+        amount: paymentRequest.amount,
+        currency: paymentRequest.currency,
+        merchantOid
+      });
       
       // Kullanıcı IP adresi (development'ta dış IP kullanılmalı)
       const userIp = await this.getUserIP();
@@ -119,13 +127,21 @@ export class PaytrIframeService {
   }
 
   private createUserBasket(paymentRequest: PaymentRequest): string {
+    // Plan ID'sini user_basket'te kodla
     const basket = [
       [
-        `Premium Abonelik - ${paymentRequest.planType}`,
+        `PLAN_${paymentRequest.planId}_${paymentRequest.planType.toUpperCase()}_Abonelik`,
         paymentRequest.amount.toFixed(2),
         1
       ]
     ];
+    
+    console.log('🔍 PayTR Service: Creating user_basket:', {
+      planType: paymentRequest.planType,
+      planId: paymentRequest.planId,
+      basket: basket,
+      base64: Buffer.from(JSON.stringify(basket)).toString('base64')
+    });
     
     return Buffer.from(JSON.stringify(basket)).toString('base64');
   }
@@ -136,12 +152,36 @@ export class PaytrIframeService {
       .digest('base64');
   }
 
-  private generateMerchantOid(userId: string): string {
+  private generateMerchantOid(userId: string, planId?: string): string {
     const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 8);
+    const random = Math.random().toString(36).substring(2, 6); // 4 karakter random
+    
     // Sadece alfanumerik karakterler kullan, özel karakterleri kaldır
     const cleanUserId = userId.replace(/[^a-zA-Z0-9]/g, '');
-    return `order${cleanUserId}${timestamp}${random}`;
+    const cleanPlanId = planId ? planId.replace(/[^a-zA-Z0-9]/g, '') : '';
+    
+    // Plan ID'sini belirgin şekilde ayırmak için prefix kullan
+    const planPrefix = planId ? `plan${cleanPlanId}` : '';
+    
+    // 64 karakter limitini aşmamak için kontrol et
+    let merchantOid = `order${cleanUserId}${planPrefix}${timestamp}${random}`;
+    
+    // Eğer 64 karakteri aşıyorsa, user ID'yi kısalt
+    if (merchantOid.length > 64) {
+      const maxUserIdLength = 64 - (`order${planPrefix}${timestamp}${random}`.length);
+      const truncatedUserId = cleanUserId.substring(0, Math.max(8, maxUserIdLength));
+      merchantOid = `order${truncatedUserId}${planPrefix}${timestamp}${random}`;
+    }
+    
+    console.log('🔍 Generated Merchant OID:', {
+      userId: cleanUserId,
+      planId: cleanPlanId,
+      planPrefix,
+      merchantOid,
+      length: merchantOid.length
+    });
+    
+    return merchantOid;
   }
 
   private async getUserIP(): Promise<string> {

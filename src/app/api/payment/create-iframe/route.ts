@@ -38,6 +38,10 @@ function validatePaymentRequest(body: any): { isValid: boolean; error?: string }
     return { isValid: false, error: 'Geçersiz plan tipi' };
   }
   
+  if (!body.planId || typeof body.planId !== 'string') {
+    return { isValid: false, error: 'Plan ID gerekli' };
+  }
+  
   if (!body.userEmail || typeof body.userEmail !== 'string' || !body.userEmail.includes('@')) {
     return { isValid: false, error: 'Geçersiz email' };
   }
@@ -107,7 +111,39 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
     
-    const { userId, amount, planType, userEmail, userName, userPhone, userAddress } = body;
+    const { userId, amount, planType, planId, userEmail, userName, userPhone, userAddress } = body;
+    
+    // CRITICAL DEBUG: API'ye hangi plan geldi?
+    console.log('🔥 CREATE-IFRAME API: Received payment request:', {
+      userId,
+      planId,
+      planType,
+      amount,
+      body: JSON.stringify(body, null, 2)
+    });
+    
+    // YENİ SİSTEM: Seçilen planı temporary olarak kaydet
+    console.log('💾 STORING PENDING PLAN: Saving selected plan before payment');
+    const { db } = await import('@/lib/firebase');
+    const { doc, setDoc, Timestamp } = await import('firebase/firestore');
+    
+    await setDoc(doc(db, 'pendingPayments', userId), {
+      planId: planId,
+      planType: planType,
+      amount: amount,
+      currency: 'TRY',
+      userId: userId,
+      userEmail: userEmail,
+      userName: userName,
+      createdAt: Timestamp.fromDate(new Date()),
+      status: 'pending',
+      paymentData: {
+        userPhone,
+        userAddress
+      }
+    });
+    
+    console.log('✅ PENDING PLAN SAVED:', { userId, planId, planType, amount });
     
     // PayTR iFrame API ile ödeme formu oluştur
     const paymentRequest: PaymentRequest = {
@@ -115,6 +151,7 @@ export async function POST(request: NextRequest) {
       amount,
       currency: 'TRY',
       planType,
+      planId, // Plan ID'sini ekle
       userEmail,
       userName,
       userPhone,
